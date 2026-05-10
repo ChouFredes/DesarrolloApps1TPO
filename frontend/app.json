@@ -1,0 +1,35 @@
+{
+  "expo": {
+    "name": "VIVO SUBASTAS",
+    "slug": "vivo-subastas",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splash-icon.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#F0F2F5"
+    },
+    "ios": {
+      "supportsTablet": false,
+      "bundleIdentifier": "com.vivosubastas.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#F0F2F5"
+      },
+      "package": "com.vivosubastas.app",
+      "edgeToEdgeEnabled": true,
+      "predictiveBackGestureEnabled": false
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-font"
+    ]
+  }
+}
