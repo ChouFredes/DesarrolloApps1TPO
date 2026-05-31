@@ -88,7 +88,7 @@ export function CompraDetalleScreen() {
       try {
         setError(null);
         const res = await axios.get<CompraDetalle>(
-          `${API_BASE_URL}/usuarios/${user.id}/compras/${compraId}`,
+          `${API_BASE_URL}/compras/${compraId}`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setCompra(res.data);

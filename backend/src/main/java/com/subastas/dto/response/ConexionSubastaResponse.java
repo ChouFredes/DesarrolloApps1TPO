@@ -1,6 +1,7 @@
 package com.subastas.dto.response;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 public record ConexionSubastaResponse(
         Long subastaId,
@@ -8,5 +9,10 @@ public record ConexionSubastaResponse(
         Integer numeroPostor,
         ItemCatalogoResponse itemActual,
         BigDecimal mayorOfertaActual,
-        Boolean puedeOfertar
+        Boolean puedeOfertar,
+        BigDecimal pujaMinima,
+        BigDecimal pujaMaxima,
+        Integer tiempoRestante,
+        List<PujaEnHistorialResponse> historialPujas,
+        MedioPagoResponse medioPagoSeleccionado
 ) {}

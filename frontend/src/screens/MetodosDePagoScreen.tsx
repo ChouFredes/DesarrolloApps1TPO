@@ -117,7 +117,7 @@ export function MetodosDePagoScreen() {
       return;
     }
     try {
-      const res = await fetch(`${API_BASE_URL}/usuarios/${user.id}/medios-de-pago`, {
+      const res = await fetch(`${API_BASE_URL}/usuarios/me/medios-de-pago`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error('Error');
@@ -148,7 +148,7 @@ export function MetodosDePagoScreen() {
           style: 'destructive',
           onPress: async () => {
             try {
-              await fetch(`${API_BASE_URL}/usuarios/${user!.id}/medios-de-pago/${medio.id}`, {
+              await fetch(`${API_BASE_URL}/usuarios/me/medios-de-pago/${medio.id}`, {
                 method: 'DELETE',
                 headers: { Authorization: `Bearer ${token}` },
               });

@@ -1,8 +1,10 @@
 package com.subastas.service;
 
+import com.subastas.dto.request.PagarCompraRequest;
 import com.subastas.dto.response.RegistroCompraDetalleResponse;
 import com.subastas.dto.response.RegistroCompraResponse;
 import com.subastas.entity.RegistroDeSubasta;
+import com.subastas.exception.BusinessException;
 import com.subastas.exception.ResourceNotFoundException;
 import com.subastas.repository.RegistroDeSubastaRepository;
 import lombok.RequiredArgsConstructor;
@@ -59,5 +61,25 @@ public class CompraService {
                 totalAPagar,
                 r.isRetiroPersonal()
         );
+    }
+
+    @Transactional
+    public void pagar(Long clienteId, Long compraId, PagarCompraRequest request) {
+        log.debug("Procesando pago de compraId={} para clienteId={}", compraId, clienteId);
+        RegistroDeSubasta r = registroDeSubastaRepository
+                .findByIdAndClienteId(compraId, clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Compra no encontrada"));
+
+        if ("retiroPersonal".equals(request.modalidadEntrega())) {
+            if (!Boolean.TRUE.equals(request.confirmaLossDeSeguros())) {
+                throw new BusinessException("Debe confirmar la pérdida de cobertura del seguro para el retiro personal");
+            }
+            r.setRetiroPersonal(true);
+        } else {
+            r.setRetiroPersonal(false);
+        }
+
+        registroDeSubastaRepository.save(r);
+        log.info("Pago registrado para compraId={}, modalidad={}", compraId, request.modalidadEntrega());
     }
 }

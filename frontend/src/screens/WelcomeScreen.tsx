@@ -1,5 +1,5 @@
-import React from 'react';
-import { View, Text, StyleSheet, TouchableOpacity } from 'react-native';
+import React, { useEffect, useRef } from 'react';
+import { View, Text, StyleSheet, TouchableOpacity, Animated } from 'react-native';
 import { MaterialCommunityIcons, FontAwesome, AntDesign } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
@@ -13,10 +13,24 @@ type Nav = StackNavigationProp<AuthStackParamList, 'Welcome'>;
 
 export function WelcomeScreen() {
   const navigation = useNavigation<Nav>();
+  const logoOpacity = useRef(new Animated.Value(0)).current;
+  const buttonsTranslate = useRef(new Animated.Value(40)).current;
+  const buttonsOpacity = useRef(new Animated.Value(0)).current;
+
+  useEffect(() => {
+    Animated.stagger(150, [
+      Animated.timing(logoOpacity, { toValue: 1, duration: 500, useNativeDriver: true }),
+      Animated.parallel([
+        Animated.timing(buttonsOpacity, { toValue: 1, duration: 400, useNativeDriver: true }),
+        Animated.spring(buttonsTranslate, { toValue: 0, tension: 60, friction: 8, useNativeDriver: true }),
+      ]),
+    ]).start();
+  }, []);
+
   return (
     <SafeAreaView style={styles.container}>
       <View style={styles.content}>
-        <View style={styles.logoArea}>
+        <Animated.View style={[styles.logoArea, { opacity: logoOpacity }]}>
           <Text style={styles.bienvenidos}>Bienvenidos a</Text>
           <View style={styles.logo}>
             <MaterialCommunityIcons name="gavel" size={40} color={colors.primary} />
@@ -25,13 +39,13 @@ export function WelcomeScreen() {
               <Text style={styles.subastas}>SUBASTAS</Text>
             </View>
           </View>
-        </View>
-        <View style={styles.buttons}>
+        </Animated.View>
+        <Animated.View style={[styles.buttons, { opacity: buttonsOpacity, transform: [{ translateY: buttonsTranslate }] }]}>
           <PrimaryButton title="Registrarse" onPress={() => navigation.navigate('RegisterStep1')} />
           <View style={{ height: spacing.md }} />
           <SecondaryButton title="Inicio de sesión" onPress={() => navigation.navigate('Login')} />
-        </View>
-        <View style={styles.socialArea}>
+        </Animated.View>
+        <Animated.View style={[styles.socialArea, { opacity: buttonsOpacity }]}>
           <Text style={styles.or}>or</Text>
           <View style={styles.socialRow}>
             {[
@@ -42,7 +56,7 @@ export function WelcomeScreen() {
               <TouchableOpacity key={i} style={styles.socialBtn}>{s.icon}</TouchableOpacity>
             ))}
           </View>
-        </View>
+        </Animated.View>
       </View>
     </SafeAreaView>
   );

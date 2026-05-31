@@ -10,6 +10,7 @@ import {
   Alert,
   KeyboardAvoidingView,
   Platform,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -78,6 +79,15 @@ export function AuctionRoomScreen() {
   const stompClient = useRef<Client | null>(null);
   const listRef = useRef<FlatList>(null);
   const timeLeft = useCountdown(fechaFin);
+  const priceScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    if (currentPrice === 0) return;
+    Animated.sequence([
+      Animated.timing(priceScale, { toValue: 1.1, duration: 120, useNativeDriver: true }),
+      Animated.spring(priceScale, { toValue: 1, tension: 100, friction: 6, useNativeDriver: true }),
+    ]).start();
+  }, [currentPrice]);
 
   // Step 1: REST connect + fetch subasta details
   const initialize = useCallback(async () => {
@@ -280,7 +290,9 @@ export function AuctionRoomScreen() {
         {/* Current price */}
         <View style={styles.priceSection}>
           <Text style={styles.ofertaLabel}>Oferta actual</Text>
-          <Text style={styles.ofertaPrice}>$ {currentPrice.toLocaleString()}</Text>
+          <Animated.View style={{ transform: [{ scale: priceScale }] }}>
+            <Text style={styles.ofertaPrice}>$ {currentPrice.toLocaleString()}</Text>
+          </Animated.View>
           {numeroPostor !== null && (
             <Text style={styles.postorLabel}>Tu número de postor: #{numeroPostor}</Text>
           )}

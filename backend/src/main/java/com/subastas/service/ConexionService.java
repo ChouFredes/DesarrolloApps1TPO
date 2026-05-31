@@ -2,11 +2,15 @@ package com.subastas.service;
 
 import com.subastas.dto.response.ConexionSubastaResponse;
 import com.subastas.dto.response.ItemCatalogoResponse;
+import com.subastas.dto.response.MedioPagoResponse;
+import com.subastas.dto.response.PujaEnHistorialResponse;
 import com.subastas.entity.Asistente;
 import com.subastas.entity.Cliente;
 import com.subastas.entity.Foto;
 import com.subastas.entity.ItemCatalogo;
+import com.subastas.entity.MedioPago;
 import com.subastas.entity.Subasta;
+import com.subastas.entity.enums.CategoriaCliente;
 import com.subastas.entity.enums.EstadoMedioPago;
 import com.subastas.entity.enums.EstadoSubasta;
 import com.subastas.exception.BusinessException;
@@ -80,6 +84,9 @@ public class ConexionService {
 
         ItemCatalogoResponse itemActualResponse = null;
         BigDecimal mayorOfertaActual = null;
+        BigDecimal pujaMinima = null;
+        BigDecimal pujaMaxima = null;
+        List<PujaEnHistorialResponse> historialPujas = List.of();
 
         if (itemActualOpt.isPresent()) {
             ItemCatalogo item = itemActualOpt.get();
@@ -94,7 +101,40 @@ public class ConexionService {
                     fotosUrls
             );
             mayorOfertaActual = pujoRepository.findMayorImporteByItemId(item.getId()).orElse(null);
+
+            if (mayorOfertaActual != null && item.getPrecioBase() != null) {
+                BigDecimal base = item.getPrecioBase();
+                pujaMinima = mayorOfertaActual.add(base.multiply(BigDecimal.valueOf(0.01)));
+                CategoriaCliente cat = cliente.getCategoria();
+                if (cat != CategoriaCliente.oro && cat != CategoriaCliente.platino) {
+                    pujaMaxima = mayorOfertaActual.add(base.multiply(BigDecimal.valueOf(0.20)));
+                }
+            }
+
+            historialPujas = pujoRepository.findByItemIdOrderByTimestampDesc(item.getId())
+                    .stream()
+                    .map(p -> new PujaEnHistorialResponse(
+                            p.getAsistente().getNumeroPostor(),
+                            p.getImporte(),
+                            p.getTimestamp()
+                    ))
+                    .toList();
         }
+
+        MedioPagoResponse medioPagoSeleccionado = medioPagoRepository
+                .findByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)
+                .stream()
+                .findFirst()
+                .map(mp -> new MedioPagoResponse(
+                        mp.getId(),
+                        mp.getTipo() != null ? mp.getTipo().name() : null,
+                        null,
+                        mp.getMoneda(),
+                        mp.getEstado() != null ? mp.getEstado().name() : null,
+                        mp.isEsBancaExterior(),
+                        mp.getMontoCheque()
+                ))
+                .orElse(null);
 
         return new ConexionSubastaResponse(
                 subastaId,
@@ -102,7 +142,12 @@ public class ConexionService {
                 asistente.getNumeroPostor(),
                 itemActualResponse,
                 mayorOfertaActual,
-                true
+                true,
+                pujaMinima,
+                pujaMaxima,
+                null,
+                historialPujas,
+                medioPagoSeleccionado
         );
     }
 

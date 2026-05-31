@@ -73,7 +73,7 @@ export function MisArticulosScreen() {
   const fetchArticulos = useCallback(async () => {
     try {
       setError(null);
-      const res = await axios.get<Articulo[]>(`${API_BASE_URL}/owner/items`, {
+      const res = await axios.get<Articulo[]>(`${API_BASE_URL}/articulos/mis-articulos`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setArticulos(res.data);

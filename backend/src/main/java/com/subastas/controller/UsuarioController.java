@@ -4,18 +4,19 @@ import com.subastas.dto.request.MedioPagoRequest;
 import com.subastas.dto.response.HistorialUsuarioResponse;
 import com.subastas.dto.response.MedioPagoResponse;
 import com.subastas.dto.response.UsuarioResponse;
-import com.subastas.exception.UnauthorizedException;
 import com.subastas.security.JwtUtil;
 import com.subastas.service.MedioPagoService;
 import com.subastas.service.UsuarioService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
+import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
 
+@Slf4j
 @RestController
 @RequestMapping("/usuarios")
 @RequiredArgsConstructor
@@ -25,55 +26,47 @@ public class UsuarioController {
     private final MedioPagoService medioPagoService;
     private final JwtUtil jwtUtil;
 
-    @GetMapping("/{usuarioId}")
+    @GetMapping("/me")
     public ResponseEntity<UsuarioResponse> obtenerPerfil(
-            @PathVariable Long usuarioId,
             @RequestHeader("Authorization") String bearerToken) {
-        verificarAcceso(usuarioId, bearerToken);
-        return ResponseEntity.ok(usuarioService.obtenerPerfil(usuarioId));
+        Long userId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("GET /usuarios/me — userId={}", userId);
+        return ResponseEntity.ok(usuarioService.obtenerPerfil(userId));
     }
 
-    @GetMapping("/{usuarioId}/historial")
+    @GetMapping("/me/historial")
     public ResponseEntity<HistorialUsuarioResponse> obtenerHistorial(
-            @PathVariable Long usuarioId,
             @RequestHeader("Authorization") String bearerToken) {
-        verificarAcceso(usuarioId, bearerToken);
-        return ResponseEntity.ok(usuarioService.obtenerHistorial(usuarioId));
+        Long userId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("GET /usuarios/me/historial — userId={}", userId);
+        return ResponseEntity.ok(usuarioService.obtenerHistorial(userId));
     }
 
-    @GetMapping("/{usuarioId}/medios-de-pago")
+    @GetMapping("/me/medios-de-pago")
     public ResponseEntity<List<MedioPagoResponse>> listarMediosDePago(
-            @PathVariable Long usuarioId,
             @RequestHeader("Authorization") String bearerToken) {
-        verificarAcceso(usuarioId, bearerToken);
-        return ResponseEntity.ok(medioPagoService.listar(usuarioId));
+        Long userId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("GET /usuarios/me/medios-de-pago — userId={}", userId);
+        return ResponseEntity.ok(medioPagoService.listar(userId));
     }
 
-    @PostMapping("/{usuarioId}/medios-de-pago")
+    @PostMapping("/me/medios-de-pago")
     public ResponseEntity<MedioPagoResponse> registrarMedioDePago(
-            @PathVariable Long usuarioId,
             @RequestHeader("Authorization") String bearerToken,
             @Valid @RequestBody MedioPagoRequest request) {
-        verificarAcceso(usuarioId, bearerToken);
-        MedioPagoResponse response = medioPagoService.registrar(usuarioId, request);
+        Long userId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("POST /usuarios/me/medios-de-pago — userId={}", userId);
+        MedioPagoResponse response = medioPagoService.registrar(userId, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @DeleteMapping("/{usuarioId}/medios-de-pago/{medioId}")
+    @DeleteMapping("/me/medios-de-pago/{medioId}")
     public ResponseEntity<Void> eliminarMedioDePago(
-            @PathVariable Long usuarioId,
             @PathVariable Long medioId,
             @RequestHeader("Authorization") String bearerToken) {
-        verificarAcceso(usuarioId, bearerToken);
-        medioPagoService.eliminar(usuarioId, medioId);
+        Long userId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("DELETE /usuarios/me/medios-de-pago/{} — userId={}", medioId, userId);
+        medioPagoService.eliminar(userId, medioId);
         return ResponseEntity.noContent().build();
-    }
-
-    private void verificarAcceso(Long usuarioId, String bearerToken) {
-        String token = bearerToken.substring(7);
-        Long tokenUserId = jwtUtil.extractUserId(token);
-        if (!tokenUserId.equals(usuarioId)) {
-            throw new UnauthorizedException("No tiene permiso para acceder a los datos de este usuario");
-        }
     }
 }

@@ -1,10 +1,11 @@
 package com.subastas.controller;
 
+import com.subastas.dto.request.PagarCompraRequest;
 import com.subastas.dto.response.RegistroCompraDetalleResponse;
 import com.subastas.dto.response.RegistroCompraResponse;
-import com.subastas.exception.UnauthorizedException;
 import com.subastas.security.JwtUtil;
 import com.subastas.service.CompraService;
+import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -14,37 +15,38 @@ import java.util.List;
 
 @Slf4j
 @RestController
-@RequestMapping("/usuarios")
+@RequestMapping("/compras")
 @RequiredArgsConstructor
 public class CompraController {
 
     private final CompraService compraService;
     private final JwtUtil jwtUtil;
 
-    @GetMapping("/{usuarioId}/compras")
+    @GetMapping("/mis-compras")
     public ResponseEntity<List<RegistroCompraResponse>> listarCompras(
-            @PathVariable Long usuarioId,
             @RequestHeader("Authorization") String bearerToken) {
-        verificarAcceso(usuarioId, bearerToken);
-        log.info("GET /usuarios/{}/compras", usuarioId);
-        return ResponseEntity.ok(compraService.listarCompras(usuarioId));
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("GET /compras/mis-compras — clienteId={}", clienteId);
+        return ResponseEntity.ok(compraService.listarCompras(clienteId));
     }
 
-    @GetMapping("/{usuarioId}/compras/{compraId}")
+    @GetMapping("/{compraId}")
     public ResponseEntity<RegistroCompraDetalleResponse> obtenerDetalle(
-            @PathVariable Long usuarioId,
             @PathVariable Long compraId,
             @RequestHeader("Authorization") String bearerToken) {
-        verificarAcceso(usuarioId, bearerToken);
-        log.info("GET /usuarios/{}/compras/{}", usuarioId, compraId);
-        return ResponseEntity.ok(compraService.obtenerDetalle(usuarioId, compraId));
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("GET /compras/{} — clienteId={}", compraId, clienteId);
+        return ResponseEntity.ok(compraService.obtenerDetalle(clienteId, compraId));
     }
 
-    private void verificarAcceso(Long usuarioId, String bearerToken) {
-        String token = bearerToken.substring(7);
-        Long tokenUserId = jwtUtil.extractUserId(token);
-        if (!tokenUserId.equals(usuarioId)) {
-            throw new UnauthorizedException("No tiene permiso para acceder a los datos de este usuario");
-        }
+    @PostMapping("/{compraId}/pagar")
+    public ResponseEntity<Void> pagar(
+            @PathVariable Long compraId,
+            @Valid @RequestBody PagarCompraRequest request,
+            @RequestHeader("Authorization") String bearerToken) {
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("POST /compras/{}/pagar — clienteId={}", compraId, clienteId);
+        compraService.pagar(clienteId, compraId, request);
+        return ResponseEntity.ok().build();
     }
 }

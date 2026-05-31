@@ -48,7 +48,7 @@ export function SolicitarArticuloScreen() {
       if (!user?.id) return;
       try {
         const res = await axios.get<MedioPago[]>(
-          `${API_BASE_URL}/usuarios/${user.id}/medios-de-pago`,
+          `${API_BASE_URL}/usuarios/me/medios-de-pago`,
           { headers: { Authorization: `Bearer ${token}` } }
         );
         setMediosDePago(res.data);
@@ -111,7 +111,7 @@ export function SolicitarArticuloScreen() {
     setSubmitting(true);
     try {
       await axios.post(
-        `${API_BASE_URL}/owner/items`,
+        `${API_BASE_URL}/articulos/solicitar`,
         {
           descripcion: descripcion.trim(),
           valorEstimado: Number(valorEstimado),

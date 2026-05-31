@@ -151,6 +151,24 @@ public class ArticuloService {
         );
     }
 
+    @Transactional
+    public void aceptarPrecio(Long articuloId, Long clienteId) {
+        Producto producto = productoRepository.findByIdAndDuenioId(articuloId, clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
+        producto.setDisponible("precio_aceptado");
+        productoRepository.save(producto);
+        log.info("Precio aceptado para articuloId={}, clienteId={}", articuloId, clienteId);
+    }
+
+    @Transactional
+    public void rechazarPrecio(Long articuloId, Long clienteId) {
+        Producto producto = productoRepository.findByIdAndDuenioId(articuloId, clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
+        producto.setDisponible("precio_rechazado");
+        productoRepository.save(producto);
+        log.info("Precio rechazado para articuloId={}, clienteId={}", articuloId, clienteId);
+    }
+
     @Transactional(readOnly = true)
     public UbicacionArticuloResponse obtenerUbicacion(Long clienteId, Long articuloId) {
         log.info("Obteniendo ubicación para clienteId={}, articuloId={}", clienteId, articuloId);

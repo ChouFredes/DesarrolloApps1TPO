@@ -49,4 +49,11 @@ public class SubastaController {
             @RequestHeader("Authorization") String bearerToken) {
         return ResponseEntity.ok(subastaService.obtenerPujas(id, itemId));
     }
+
+    @GetMapping("/mis-participaciones")
+    public ResponseEntity<List<SubastaResponse>> obtenerMisParticipaciones(
+            @RequestHeader("Authorization") String bearerToken) {
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        return ResponseEntity.ok(subastaService.obtenerParticipaciones(clienteId));
+    }
 }

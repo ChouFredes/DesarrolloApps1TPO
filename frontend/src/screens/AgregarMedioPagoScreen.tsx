@@ -110,7 +110,7 @@ export function AgregarMedioPagoScreen() {
     if (!user?.id || !token) return;
     setSaving(true);
     try {
-      const res = await fetch(`${API_BASE_URL}/usuarios/${user.id}/medios-de-pago`, {
+      const res = await fetch(`${API_BASE_URL}/usuarios/me/medios-de-pago`, {
         method: 'POST',
         headers: {
           Authorization: `Bearer ${token}`,

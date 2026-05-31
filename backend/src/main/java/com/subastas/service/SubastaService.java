@@ -12,6 +12,7 @@ import com.subastas.entity.Subasta;
 import com.subastas.entity.enums.CategoriaSubasta;
 import com.subastas.exception.ForbiddenException;
 import com.subastas.exception.ResourceNotFoundException;
+import com.subastas.repository.AsistenteRepository;
 import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.FotoRepository;
 import com.subastas.repository.ItemCatalogoRepository;
@@ -36,6 +37,7 @@ public class SubastaService {
     private final FotoRepository fotoRepository;
     private final PujoRepository pujoRepository;
     private final ClienteRepository clienteRepository;
+    private final AsistenteRepository asistenteRepository;
 
     @Transactional(readOnly = true)
     public List<SubastaResponse> obtenerAbiertasParaCliente(Long clienteId) {
@@ -159,6 +161,22 @@ public class SubastaService {
                         p.getImporte(),
                         p.getGanador(),
                         p.getTimestamp()
+                ))
+                .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubastaResponse> obtenerParticipaciones(Long clienteId) {
+        return asistenteRepository.findByClienteId(clienteId).stream()
+                .map(a -> a.getSubasta())
+                .map(s -> new SubastaResponse(
+                        s.getId(),
+                        s.getFecha(),
+                        s.getHora() != null ? s.getHora().toString() : null,
+                        s.getEstado() != null ? s.getEstado().name() : null,
+                        s.getCategoria() != null ? s.getCategoria().name() : null,
+                        "ARS",
+                        s.getUbicacion()
                 ))
                 .toList();
     }

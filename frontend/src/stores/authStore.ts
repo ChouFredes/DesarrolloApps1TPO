@@ -17,11 +17,14 @@ interface AuthState {
   setUser: (user: User) => void;
 }
 
+// DEV: cambia DEV_MODE a false cuando tengas el backend + DB levantados
+const DEV_MODE = true;
+
 export const useAuthStore = create<AuthState>((set) => ({
-  token: null,
-  refreshToken: null,
-  user: null,
-  isAuthenticated: false,
+  token: DEV_MODE ? 'dev-token' : null,
+  refreshToken: DEV_MODE ? 'dev-refresh' : null,
+  user: DEV_MODE ? { id: 1, nombre: 'Test', apellido: 'User', categoria: 'comun' } : null,
+  isAuthenticated: DEV_MODE,
   login: (token, refreshToken, user) =>
     set({ token, refreshToken, user, isAuthenticated: true }),
   logout: () =>

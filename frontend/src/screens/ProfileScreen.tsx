@@ -72,7 +72,7 @@ export function ProfileScreen() {
       setLoading(false);
       return;
     }
-    fetch(`${API_BASE_URL}/usuarios/${user.id}`, {
+    fetch(`${API_BASE_URL}/usuarios/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())

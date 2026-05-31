@@ -67,7 +67,7 @@ export function ComprasScreen() {
     if (!user?.id) return;
     try {
       setError(null);
-      const res = await axios.get<Compra[]>(`${API_BASE_URL}/usuarios/${user.id}/compras`, {
+      const res = await axios.get<Compra[]>(`${API_BASE_URL}/compras/mis-compras`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       setCompras(res.data);

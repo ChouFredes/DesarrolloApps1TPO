@@ -1,5 +1,5 @@
-import React from 'react';
-import { TouchableOpacity, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
+import React, { useRef } from 'react';
+import { Animated, Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
 import { colors, borderRadius, spacing } from '../theme';
 
 interface Props {
@@ -11,19 +11,27 @@ interface Props {
 }
 
 export function PrimaryButton({ title, onPress, loading, disabled, style }: Props) {
+  const scale = useRef(new Animated.Value(1)).current;
+
+  const handlePressIn = () => {
+    Animated.spring(scale, { toValue: 0.96, speed: 60, bounciness: 3, useNativeDriver: true }).start();
+  };
+  const handlePressOut = () => {
+    Animated.spring(scale, { toValue: 1, speed: 60, bounciness: 3, useNativeDriver: true }).start();
+  };
+
   return (
-    <TouchableOpacity
-      style={[styles.button, (disabled || loading) && styles.disabled, style]}
-      onPress={onPress}
-      disabled={disabled || loading}
-      activeOpacity={0.8}
-    >
-      {loading ? (
-        <ActivityIndicator color="#fff" />
-      ) : (
-        <Text style={styles.text}>{title}</Text>
-      )}
-    </TouchableOpacity>
+    <Animated.View style={[{ transform: [{ scale }] }, style]}>
+      <Pressable
+        style={[styles.button, (disabled || loading) && styles.disabled]}
+        onPress={onPress}
+        onPressIn={handlePressIn}
+        onPressOut={handlePressOut}
+        disabled={disabled || loading}
+      >
+        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>{title}</Text>}
+      </Pressable>
+    </Animated.View>
   );
 }
 
