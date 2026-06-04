@@ -10,10 +10,10 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import axios from 'axios';
-import { colors, spacing, borderRadius, shadows, typography } from '../theme';
-import { useAuthStore } from '../stores/authStore';
-import { API_BASE_URL } from '../config/api';
+import { colors, spacing, borderRadius, shadows } from '../theme';
+import { MOCK_NOTIFICACIONES } from '../mocks/data';
+
+const DEV_MODE = true;
 
 type NotificationType =
   | 'RESULTADO_COMPRA'
@@ -62,15 +62,19 @@ interface IconConfig {
 function getIconConfig(tipo: NotificationType): IconConfig {
   switch (tipo) {
     case 'RESULTADO_COMPRA':
-      return { library: 'Ionicons', name: 'checkmark-circle', bgColor: '#E8F5E9', iconColor: colors.success };
+      // Trofeo dorado — el usuario ganó
+      return { library: 'Ionicons', name: 'trophy', bgColor: '#FFF8E7', iconColor: colors.accent };
     case 'MULTA_PENDIENTE':
+      // Warning rojo
       return { library: 'Ionicons', name: 'warning', bgColor: '#FFEBEE', iconColor: colors.error };
     case 'ARTICULO_ACEPTADO':
-      return { library: 'MaterialCommunityIcons', name: 'gavel', bgColor: '#E8F5E9', iconColor: colors.success };
+      // Checkmark verde
+      return { library: 'Ionicons', name: 'checkmark-circle', bgColor: '#E8F5E9', iconColor: colors.success };
     case 'ARTICULO_RECHAZADO':
       return { library: 'Ionicons', name: 'close-circle', bgColor: '#FFEBEE', iconColor: colors.error };
     case 'CUENTA_ACTIVADA':
-      return { library: 'Ionicons', name: 'checkmark-done-circle', bgColor: '#E3F2FD', iconColor: '#1976D2' };
+      // Person-check azul/primario
+      return { library: 'MaterialCommunityIcons', name: 'account-check', bgColor: '#E3F2FD', iconColor: colors.primary };
     case 'PAGO_REQUERIDO':
       return { library: 'MaterialCommunityIcons', name: 'cash', bgColor: '#FFF3E0', iconColor: colors.accent };
     case 'BIEN_DEVUELTO':
@@ -94,61 +98,41 @@ function NotifIcon({ tipo }: { tipo: NotificationType }) {
 }
 
 export function NotificationsScreen() {
-  const { token, user } = useAuthStore();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>('todas');
   const [error, setError] = useState<string | null>(null);
 
-  const fetchNotificaciones = useCallback(
-    async (currentFilter: Filter) => {
-      if (!user?.id) return;
-      try {
-        setError(null);
-        const params = currentFilter === 'no_leidas' ? { leida: false } : {};
-        const res = await axios.get<Notificacion[]>(
-          `${API_BASE_URL}/usuarios/${user.id}/notificaciones`,
-          {
-            headers: { Authorization: `Bearer ${token}` },
-            params,
-          }
-        );
-        setNotificaciones(res.data);
-      } catch {
-        setError('No se pudieron cargar las notificaciones.');
-      } finally {
-        setLoading(false);
-        setRefreshing(false);
-      }
-    },
-    [token, user]
-  );
+  const cargarNotificaciones = useCallback((currentFilter: Filter) => {
+    if (DEV_MODE) {
+      const data = MOCK_NOTIFICACIONES as Notificacion[];
+      const filtered = currentFilter === 'no_leidas' ? data.filter(n => !n.leida) : data;
+      setNotificaciones(filtered);
+      setLoading(false);
+      setRefreshing(false);
+      return;
+    }
+    // Real fetch placeholder — reemplazar cuando el backend esté activo
+    setLoading(false);
+    setRefreshing(false);
+  }, []);
 
   useEffect(() => {
     setLoading(true);
-    fetchNotificaciones(filter);
-  }, [filter, fetchNotificaciones]);
+    cargarNotificaciones(filter);
+  }, [filter, cargarNotificaciones]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchNotificaciones(filter);
+    cargarNotificaciones(filter);
   };
 
-  const markAsRead = async (notifId: number) => {
-    if (!user?.id) return;
-    try {
-      await axios.patch(
-        `${API_BASE_URL}/usuarios/${user.id}/notificaciones/${notifId}/leer`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } }
-      );
-      setNotificaciones((prev) =>
-        prev.map((n) => (n.id === notifId ? { ...n, leida: true } : n))
-      );
-    } catch {
-      // silently fail mark-as-read
-    }
+  const markAsRead = (notifId: number) => {
+    // En DEV_MODE: sólo cambia estado local
+    setNotificaciones(prev =>
+      prev.map(n => n.id === notifId ? { ...n, leida: true } : n)
+    );
   };
 
   const renderItem = ({ item }: { item: Notificacion }) => (
@@ -205,7 +189,7 @@ export function NotificationsScreen() {
         <View style={styles.centered}>
           <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
           <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={() => fetchNotificaciones(filter)}>
+          <TouchableOpacity style={styles.retryBtn} onPress={() => cargarNotificaciones(filter)}>
             <Text style={styles.retryText}>Reintentar</Text>
           </TouchableOpacity>
         </View>
@@ -224,7 +208,9 @@ export function NotificationsScreen() {
               <Ionicons name="notifications-off-outline" size={56} color={colors.textSecondary} />
               <Text style={styles.emptyTitle}>No tenés notificaciones</Text>
               <Text style={styles.emptySubtitle}>
-                {filter === 'no_leidas' ? 'Todas tus notificaciones están leídas.' : 'Cuando tengas novedades, aparecerán aquí.'}
+                {filter === 'no_leidas'
+                  ? 'Todas tus notificaciones están leídas.'
+                  : 'Cuando tengas novedades, aparecerán aquí.'}
               </Text>
             </View>
           }

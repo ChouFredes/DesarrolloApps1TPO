@@ -145,7 +145,7 @@ public class AuthService {
 
         log.info("Login exitoso para usuario id: {}, documento: {}", cliente.getId(), cliente.getDocumento());
 
-        return new LoginResponse(accessToken, refreshTokenStr, cliente.getId(), cliente.getCategoria().name());
+        return new LoginResponse(accessToken, refreshTokenStr, cliente.getId(), cliente.getNombre(), cliente.getApellido(), cliente.getCategoria().name());
     }
 
     @Transactional

@@ -1,11 +1,11 @@
 export const colors = {
-  primary: '#1A1A2E',
+  primary: '#1A1201',
   accent: '#F5A623',
-  background: '#F0F2F5',
+  background: '#F4EEE8',
   surface: '#FFFFFF',
-  text: '#1A1A2E',
-  textSecondary: '#9E9E9E',
-  border: '#E0E0E0',
+  text: '#1A1201',
+  textSecondary: '#8C7B6B',
+  border: '#DDD5CA',
   success: '#27AE60',
   error: '#E74C3C',
 };
@@ -39,6 +39,19 @@ export const shadows = {
 
 // Legacy aliases so existing screens that import { Colors, Spacing, ... } keep working
 export const Colors = colors;
+// Warm app palette — use these constants in any screen that hardcodes colors
+export const WARM = {
+  bg: '#F4EEE8',
+  card: '#FFFFFF',
+  surface: '#EDE8E1',
+  text: '#1A1201',
+  textSub: '#8C7B6B',
+  accent: '#F5A623',
+  border: '#DDD5CA',
+  inactive: '#B8A898',
+  imgEmpty: '#E8E0D8',
+  badge: 'rgba(0,0,0,0.55)',
+};
 export const Spacing = spacing;
 export const Radius = borderRadius;
 

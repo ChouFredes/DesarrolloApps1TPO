@@ -1,15 +1,15 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, FlatList, TouchableOpacity,
-  ActivityIndicator, StyleSheet, Alert,
+  ActivityIndicator, StyleSheet, Alert, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
-import axios from 'axios';
 import { colors, spacing, borderRadius, shadows } from '../theme';
-import { useAuthStore } from '../stores/authStore';
-import { API_BASE_URL } from '../config/api';
+import { MOCK_MULTAS } from '../mocks/data';
+
+const DEV_MODE = true;
 
 interface Multa {
   id: number;
@@ -21,40 +21,58 @@ interface Multa {
   fechaPago?: string;
 }
 
+// Pulsing badge for PENDIENTE items
+function PulseBadge() {
+  const anim = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(anim, { toValue: 1.25, duration: 700, useNativeDriver: true }),
+        Animated.timing(anim, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    ).start();
+  }, [anim]);
+
+  return (
+    <Animated.View style={[styles.pulseDot, { transform: [{ scale: anim }] }]} />
+  );
+}
+
 export function MultasScreen() {
   const navigation = useNavigation();
-  const { token } = useAuthStore();
   const [multas, setMultas] = useState<Multa[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagando, setPagando] = useState<number | null>(null);
 
-  const fetchMultas = useCallback(async () => {
-    try {
-      const res = await axios.get<Multa[]>(`${API_BASE_URL}/multas/mis-multas`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setMultas(res.data);
-    } catch {
-      Alert.alert('Error', 'No se pudieron cargar las multas.');
-    } finally {
+  const cargarMultas = useCallback(() => {
+    if (DEV_MODE) {
+      setMultas(MOCK_MULTAS as Multa[]);
       setLoading(false);
+      return;
     }
-  }, [token]);
+    // Real fetch placeholder — reemplazar cuando el backend esté activo
+    setLoading(false);
+  }, []);
 
-  useEffect(() => { fetchMultas(); }, [fetchMultas]);
+  useEffect(() => { cargarMultas(); }, [cargarMultas]);
 
-  const handlePagar = async (multaId: number) => {
-    setPagando(multaId);
-    try {
-      await axios.post(`${API_BASE_URL}/multas/${multaId}/pagar`, {}, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      fetchMultas();
-    } catch {
-      Alert.alert('Error', 'No se pudo procesar el pago.');
-    } finally {
-      setPagando(null);
+  const handlePagar = (multaId: number) => {
+    if (DEV_MODE) {
+      setPagando(multaId);
+      setTimeout(() => {
+        setMultas(prev =>
+          prev.map(m => m.id === multaId
+            ? { ...m, estado: 'PAGADA' as const, fechaPago: new Date().toISOString() }
+            : m
+          )
+        );
+        setPagando(null);
+        Alert.alert('Pago simulado', 'La multa fue marcada como pagada (DEV_MODE).');
+      }, 1500);
+      return;
     }
+    // Real payment call here
   };
 
   const hasPendiente = multas.some(m => m.estado === 'PENDIENTE');
@@ -70,12 +88,19 @@ export function MultasScreen() {
         <Text style={[styles.estadoBadge, item.estado === 'PENDIENTE' ? styles.badgePendiente : styles.badgePagada]}>
           {item.estado}
         </Text>
+        {item.estado === 'PENDIENTE' && <PulseBadge />}
       </View>
+
       <Text style={styles.motivo}>{item.motivo}</Text>
-      <Text style={styles.importe}>$ {item.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}</Text>
+      <Text style={styles.importe}>
+        $ {item.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+      </Text>
+
       {item.estado === 'PENDIENTE' && (
         <>
-          <Text style={styles.plazo}>Plazo: {new Date(item.plazoVencimiento).toLocaleString('es-AR')}</Text>
+          <Text style={styles.plazo}>
+            Plazo: {new Date(item.plazoVencimiento).toLocaleString('es-AR')}
+          </Text>
           <TouchableOpacity
             style={styles.pagarBtn}
             onPress={() => handlePagar(item.id)}
@@ -87,8 +112,11 @@ export function MultasScreen() {
           </TouchableOpacity>
         </>
       )}
+
       {item.estado === 'PAGADA' && item.fechaPago && (
-        <Text style={styles.pagadaText}>Pagada el {new Date(item.fechaPago).toLocaleDateString('es-AR')}</Text>
+        <Text style={styles.pagadaText}>
+          Pagada el {new Date(item.fechaPago).toLocaleDateString('es-AR')}
+        </Text>
       )}
     </View>
   );
@@ -106,7 +134,9 @@ export function MultasScreen() {
       {hasPendiente && (
         <View style={styles.alertBanner}>
           <Ionicons name="lock-closed" size={18} color="#fff" />
-          <Text style={styles.alertText}>Cuenta restringida hasta abonar la multa pendiente</Text>
+          <Text style={styles.alertText}>
+            Cuenta restringida hasta abonar la multa pendiente
+          </Text>
         </View>
       )}
 
@@ -137,7 +167,10 @@ export default MultasScreen;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.base, paddingVertical: spacing.md },
+  header: {
+    flexDirection: 'row', alignItems: 'center',
+    paddingHorizontal: spacing.base, paddingVertical: spacing.md,
+  },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
   title: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: colors.text },
   alertBanner: {
@@ -145,17 +178,25 @@ const styles = StyleSheet.create({
     backgroundColor: colors.error, paddingHorizontal: spacing.base, paddingVertical: spacing.md,
   },
   alertText: { color: '#fff', fontWeight: '600', fontSize: 13, flex: 1 },
-  list: { paddingHorizontal: spacing.base, paddingBottom: spacing.xl },
+  list: { paddingHorizontal: spacing.base, paddingBottom: spacing.xl, paddingTop: spacing.md },
   card: {
     backgroundColor: colors.surface, borderRadius: borderRadius.md,
     padding: spacing.base, gap: spacing.sm, ...shadows.card,
   },
   cardPendiente: { borderLeftWidth: 4, borderLeftColor: colors.error },
   cardHeader: { flexDirection: 'row', alignItems: 'center', gap: spacing.sm },
-  estadoBadge: { fontSize: 12, fontWeight: '700', paddingHorizontal: 8, paddingVertical: 3, borderRadius: borderRadius.full },
+  estadoBadge: {
+    fontSize: 12, fontWeight: '700',
+    paddingHorizontal: 8, paddingVertical: 3,
+    borderRadius: borderRadius.full,
+  },
   badgePendiente: { backgroundColor: '#FEE2E2', color: colors.error },
   badgePagada: { backgroundColor: '#D1FAE5', color: colors.success },
-  motivo: { fontSize: 14, color: colors.text },
+  pulseDot: {
+    width: 8, height: 8, borderRadius: 4,
+    backgroundColor: colors.error, marginLeft: spacing.xs,
+  },
+  motivo: { fontSize: 14, color: colors.text, lineHeight: 20 },
   importe: { fontSize: 22, fontWeight: '800', color: colors.accent },
   plazo: { fontSize: 12, color: colors.textSecondary },
   pagarBtn: {

@@ -16,7 +16,7 @@ public class Foto {
     private Long id;
 
     @Lob
-    @Column(name = "foto")
+    @Column(name = "foto", columnDefinition = "LONGBLOB")
     private byte[] foto;
 
     @ManyToOne(fetch = FetchType.LAZY)

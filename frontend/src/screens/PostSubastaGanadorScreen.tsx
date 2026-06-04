@@ -1,7 +1,7 @@
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
   View, Text, TouchableOpacity, ActivityIndicator,
-  StyleSheet, Alert, ScrollView,
+  StyleSheet, Alert, ScrollView, Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -11,6 +11,9 @@ import { colors, spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
+import { MOCK_COMPRA, MOCK_MEDIOS_PAGO } from '../mocks/data';
+
+const DEV_MODE = true;
 
 type RouteType = RouteProp<HomeStackParamList, 'PostSubastaGanador'>;
 
@@ -44,7 +47,67 @@ export function PostSubastaGanadorScreen() {
   const [loading, setLoading] = useState(true);
   const [pagando, setPagando] = useState(false);
 
+  // Animations
+  const bannerScale = useRef(new Animated.Value(0.8)).current;
+  const bannerOpacity = useRef(new Animated.Value(0)).current;
+  const trophyPulse = useRef(new Animated.Value(1)).current;
+
+  // Animated borders for delivery options
+  const envioAnim = useRef(new Animated.Value(0)).current;
+  const retiroAnim = useRef(new Animated.Value(0)).current;
+
+  // Run banner entrance animation
+  useEffect(() => {
+    Animated.parallel([
+      Animated.spring(bannerScale, {
+        toValue: 1,
+        tension: 60,
+        friction: 7,
+        useNativeDriver: true,
+      }),
+      Animated.timing(bannerOpacity, {
+        toValue: 1,
+        duration: 400,
+        useNativeDriver: true,
+      }),
+    ]).start();
+  }, [bannerOpacity, bannerScale]);
+
+  // Trophy continuous pulse
+  useEffect(() => {
+    const pulse = Animated.loop(
+      Animated.sequence([
+        Animated.timing(trophyPulse, { toValue: 1.05, duration: 700, useNativeDriver: true }),
+        Animated.timing(trophyPulse, { toValue: 1, duration: 700, useNativeDriver: true }),
+      ])
+    );
+    pulse.start();
+    return () => pulse.stop();
+  }, [trophyPulse]);
+
+  // Animate delivery option selection
+  useEffect(() => {
+    Animated.timing(envioAnim, {
+      toValue: modalidadEntrega === 'envio' ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+    Animated.timing(retiroAnim, {
+      toValue: modalidadEntrega === 'retiroPersonal' ? 1 : 0,
+      duration: 200,
+      useNativeDriver: false,
+    }).start();
+  }, [modalidadEntrega, envioAnim, retiroAnim]);
+
   const fetchData = useCallback(async () => {
+    if (DEV_MODE) {
+      const verificados = MOCK_MEDIOS_PAGO.filter(m => m.estado === 'VERIFICADO');
+      setCompra(MOCK_COMPRA);
+      setMedios(verificados);
+      if (verificados.length > 0) setMedioPagoId(verificados[0].id);
+      setLoading(false);
+      return;
+    }
     try {
       const [compraRes, mediosRes] = await Promise.all([
         axios.get<CompraDetalle>(`${API_BASE_URL}/compras/${compraId}`, {
@@ -85,6 +148,19 @@ export function PostSubastaGanadorScreen() {
 
   const ejecutarPago = async (confirmaLoss: boolean) => {
     setPagando(true);
+
+    if (DEV_MODE) {
+      setTimeout(() => {
+        setPagando(false);
+        Alert.alert(
+          '¡Pago exitoso!',
+          'Tu compra fue registrada correctamente.',
+          [{ text: 'OK', onPress: () => navigation.goBack() }]
+        );
+      }, 1500);
+      return;
+    }
+
     try {
       await axios.post(`${API_BASE_URL}/compras/${compraId}/pagar`, {
         medioPagoId,
@@ -111,6 +187,15 @@ export function PostSubastaGanadorScreen() {
 
   if (!compra) return null;
 
+  const envioBorderColor = envioAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.border, colors.accent],
+  });
+  const retiroBorderColor = retiroAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [colors.border, colors.accent],
+  });
+
   return (
     <SafeAreaView style={styles.safe}>
       <View style={styles.header}>
@@ -122,12 +207,19 @@ export function PostSubastaGanadorScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.content}>
-        {/* Winner banner */}
-        <View style={styles.winnerBanner}>
-          <Ionicons name="trophy" size={36} color={colors.accent} />
+        {/* Winner banner — animated entrance */}
+        <Animated.View
+          style={[
+            styles.winnerBanner,
+            { transform: [{ scale: bannerScale }], opacity: bannerOpacity },
+          ]}
+        >
+          <Animated.View style={{ transform: [{ scale: trophyPulse }] }}>
+            <Ionicons name="trophy" size={44} color={colors.accent} />
+          </Animated.View>
           <Text style={styles.winnerTitle}>¡Felicitaciones!</Text>
           <Text style={styles.winnerSub}>{compra.descripcionProducto}</Text>
-        </View>
+        </Animated.View>
 
         {/* Desglose */}
         <View style={styles.section}>
@@ -139,29 +231,55 @@ export function PostSubastaGanadorScreen() {
           <DesgloseLine label="Total a pagar" value={compra.totalAPagar} highlight />
         </View>
 
-        {/* Entrega */}
+        {/* Entrega — animated borders */}
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Modalidad de entrega</Text>
-          <TouchableOpacity
-            style={[styles.opcionEntrega, modalidadEntrega === 'envio' && styles.opcionSelected]}
-            onPress={() => setModalidadEntrega('envio')}
-          >
-            <Ionicons name="home" size={20} color={modalidadEntrega === 'envio' ? colors.primary : colors.textSecondary} />
-            <Text style={styles.opcionText}>Envío a domicilio</Text>
-            {modalidadEntrega === 'envio' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-          </TouchableOpacity>
-          <TouchableOpacity
-            style={[styles.opcionEntrega, modalidadEntrega === 'retiroPersonal' && styles.opcionSelected]}
-            onPress={() => setModalidadEntrega('retiroPersonal')}
-          >
-            <Ionicons name="walk" size={20} color={modalidadEntrega === 'retiroPersonal' ? colors.primary : colors.textSecondary} />
-            <Text style={styles.opcionText}>Retiro personal</Text>
-            {modalidadEntrega === 'retiroPersonal' && <Ionicons name="checkmark-circle" size={20} color={colors.primary} />}
-          </TouchableOpacity>
+          <Animated.View style={[styles.opcionEntregaBase, { borderColor: envioBorderColor }]}>
+            <TouchableOpacity
+              style={styles.opcionInner}
+              onPress={() => setModalidadEntrega('envio')}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="home"
+                size={20}
+                color={modalidadEntrega === 'envio' ? colors.accent : colors.textSecondary}
+              />
+              <Text style={[styles.opcionText, modalidadEntrega === 'envio' && styles.opcionTextActive]}>
+                Envío a domicilio
+              </Text>
+              {modalidadEntrega === 'envio' && (
+                <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
+          <Animated.View style={[styles.opcionEntregaBase, { borderColor: retiroBorderColor }]}>
+            <TouchableOpacity
+              style={styles.opcionInner}
+              onPress={() => setModalidadEntrega('retiroPersonal')}
+              activeOpacity={0.7}
+            >
+              <Ionicons
+                name="walk"
+                size={20}
+                color={modalidadEntrega === 'retiroPersonal' ? colors.accent : colors.textSecondary}
+              />
+              <Text style={[styles.opcionText, modalidadEntrega === 'retiroPersonal' && styles.opcionTextActive]}>
+                Retiro personal
+              </Text>
+              {modalidadEntrega === 'retiroPersonal' && (
+                <Ionicons name="checkmark-circle" size={20} color={colors.accent} />
+              )}
+            </TouchableOpacity>
+          </Animated.View>
+
           {modalidadEntrega === 'retiroPersonal' && (
             <View style={styles.warningBox}>
               <Ionicons name="warning" size={16} color={colors.error} />
-              <Text style={styles.warningText}>El retiro personal implica la pérdida de cobertura del seguro.</Text>
+              <Text style={styles.warningText}>
+                El retiro personal implica la pérdida de cobertura del seguro.
+              </Text>
             </View>
           )}
         </View>
@@ -176,16 +294,28 @@ export function PostSubastaGanadorScreen() {
                 key={m.id}
                 style={[styles.medioItem, medioPagoId === m.id && styles.medioSelected]}
                 onPress={() => setMedioPagoId(m.id)}
+                activeOpacity={0.7}
               >
-                <Ionicons name="card" size={18} color={medioPagoId === m.id ? colors.primary : colors.textSecondary} />
+                <Ionicons
+                  name="card"
+                  size={18}
+                  color={medioPagoId === m.id ? colors.accent : colors.textSecondary}
+                />
                 <Text style={styles.medioText}>{m.tipo} — {m.moneda}</Text>
-                {medioPagoId === m.id && <Ionicons name="checkmark-circle" size={18} color={colors.primary} />}
+                {medioPagoId === m.id && (
+                  <Ionicons name="checkmark-circle" size={18} color={colors.accent} />
+                )}
               </TouchableOpacity>
             ))
           }
         </View>
 
-        <TouchableOpacity style={styles.pagarBtn} onPress={handlePagar} disabled={pagando}>
+        <TouchableOpacity
+          style={[styles.pagarBtn, pagando && styles.pagarBtnDisabled]}
+          onPress={handlePagar}
+          disabled={pagando}
+          activeOpacity={0.85}
+        >
           {pagando
             ? <ActivityIndicator color="#fff" />
             : <Text style={styles.pagarText}>Confirmar pago</Text>}
@@ -195,11 +325,29 @@ export function PostSubastaGanadorScreen() {
   );
 }
 
-function DesgloseLine({ label, value, highlight }: { label: string; value: number; highlight?: boolean }) {
+function DesgloseLine({
+  label,
+  value,
+  highlight,
+}: {
+  label: string;
+  value: number;
+  highlight?: boolean;
+}) {
+  if (highlight) {
+    return (
+      <View style={styles.highlightRow}>
+        <Text style={styles.desgloseHighLabel}>{label}</Text>
+        <Text style={styles.desgloseHighValue}>
+          $ {value?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+        </Text>
+      </View>
+    );
+  }
   return (
     <View style={styles.desgloseLine}>
-      <Text style={[styles.desgloseLabel, highlight && styles.desgloseHighLabel]}>{label}</Text>
-      <Text style={[styles.desgloseValue, highlight && styles.desgloseHighValue]}>
+      <Text style={styles.desgloseLabel}>{label}</Text>
+      <Text style={styles.desgloseValue}>
         $ {value?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
       </Text>
     </View>
@@ -210,48 +358,128 @@ export default PostSubastaGanadorScreen;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
-  header: { flexDirection: 'row', alignItems: 'center', paddingHorizontal: spacing.base, paddingVertical: spacing.md },
+  header: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.md,
+  },
   backBtn: { width: 40, height: 40, justifyContent: 'center', alignItems: 'center' },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: colors.text },
+  headerTitle: {
+    flex: 1,
+    textAlign: 'center',
+    fontSize: 18,
+    fontWeight: '700',
+    color: colors.text,
+  },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   content: { paddingHorizontal: spacing.base, paddingBottom: spacing.xl, gap: spacing.lg },
+
+  // Winner banner
   winnerBanner: {
-    alignItems: 'center', backgroundColor: '#1A2E4A', borderRadius: borderRadius.lg,
-    padding: spacing.xl, gap: spacing.sm, ...shadows.card,
+    alignItems: 'center',
+    backgroundColor: '#1A2E4A',
+    borderRadius: borderRadius.lg,
+    padding: spacing.xl,
+    gap: spacing.sm,
+    ...shadows.card,
   },
-  winnerTitle: { fontSize: 24, fontWeight: '800', color: colors.accent },
-  winnerSub: { fontSize: 14, color: '#fff', textAlign: 'center' },
-  section: { backgroundColor: colors.surface, borderRadius: borderRadius.md, padding: spacing.base, gap: spacing.sm, ...shadows.card },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: colors.text, marginBottom: spacing.xs },
-  desgloseLine: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' },
+  winnerTitle: { fontSize: 26, fontWeight: '800', color: colors.accent, letterSpacing: 0.5 },
+  winnerSub: { fontSize: 14, color: '#C8D6E5', textAlign: 'center', marginTop: spacing.xs },
+
+  // Sections
+  section: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.base,
+    gap: spacing.sm,
+    ...shadows.card,
+  },
+  sectionTitle: {
+    fontSize: 14,
+    fontWeight: '700',
+    color: colors.text,
+    marginBottom: spacing.xs,
+  },
+
+  // Desglose lines
+  desgloseLine: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    paddingVertical: 2,
+  },
   desgloseLabel: { fontSize: 14, color: colors.textSecondary },
   desgloseValue: { fontSize: 14, fontWeight: '600', color: colors.text },
-  desgloseHighLabel: { fontSize: 16, fontWeight: '700', color: colors.text },
-  desgloseHighValue: { fontSize: 20, fontWeight: '800', color: colors.accent },
-  divider: { height: 1, backgroundColor: colors.border ?? '#E5E7EB', marginVertical: spacing.xs },
-  opcionEntrega: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    padding: spacing.md, borderRadius: borderRadius.sm,
-    borderWidth: 1, borderColor: colors.border ?? '#E5E7EB',
+
+  // Highlight row for "Total a pagar"
+  highlightRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    backgroundColor: 'rgba(245,166,35,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,166,35,0.4)',
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
   },
-  opcionSelected: { borderColor: colors.primary, backgroundColor: '#EFF6FF' },
+  desgloseHighLabel: { fontSize: 16, fontWeight: '700', color: colors.text },
+  desgloseHighValue: { fontSize: 22, fontWeight: '800', color: '#1A1A2E' },
+
+  divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
+
+  // Delivery options — Animated.View wrapper
+  opcionEntregaBase: {
+    borderRadius: borderRadius.sm,
+    borderWidth: 1.5,
+    overflow: 'hidden',
+  },
+  opcionInner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+  },
   opcionText: { flex: 1, fontSize: 14, color: colors.text },
+  opcionTextActive: { fontWeight: '600', color: colors.text },
+
   warningBox: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    backgroundColor: '#FEE2E2', borderRadius: borderRadius.sm, padding: spacing.sm,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    backgroundColor: '#FEE2E2',
+    borderRadius: borderRadius.sm,
+    padding: spacing.sm,
   },
   warningText: { flex: 1, fontSize: 12, color: colors.error },
+
+  // Medios de pago
   medioItem: {
-    flexDirection: 'row', alignItems: 'center', gap: spacing.sm,
-    padding: spacing.md, borderRadius: borderRadius.sm,
-    borderWidth: 1, borderColor: colors.border ?? '#E5E7EB',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.sm,
+    borderWidth: 1,
+    borderColor: colors.border,
   },
-  medioSelected: { borderColor: colors.primary, backgroundColor: '#EFF6FF' },
+  medioSelected: {
+    borderColor: colors.accent,
+    backgroundColor: 'rgba(245,166,35,0.06)',
+  },
   medioText: { flex: 1, fontSize: 14, color: colors.text },
   noMedios: { fontSize: 13, color: colors.textSecondary },
+
+  // Pay button
   pagarBtn: {
-    backgroundColor: colors.primary, borderRadius: borderRadius.md,
-    paddingVertical: spacing.lg, alignItems: 'center',
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.lg,
+    alignItems: 'center',
+    ...shadows.card,
   },
+  pagarBtnDisabled: { opacity: 0.7 },
   pagarText: { color: '#fff', fontWeight: '700', fontSize: 16 },
 });

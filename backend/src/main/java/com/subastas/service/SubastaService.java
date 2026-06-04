@@ -26,6 +26,7 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Map;
 import java.util.Optional;
 
 @Service
@@ -47,17 +48,46 @@ public class SubastaService {
         List<CategoriaSubasta> categoriasPermitidas = CategoriaUtil.categoriasPermitidas(cliente.getCategoria());
         List<Subasta> subastas = subastaRepository.findAbiertasConCategoriasPermitidas(categoriasPermitidas);
 
+        List<Long> ids = subastas.stream().map(Subasta::getId).toList();
+        Map<Long, Long> countPorSubasta = itemCatalogoRepository.countBySubastaIds(ids);
+
         return subastas.stream()
                 .map(s -> new SubastaResponse(
                         s.getId(),
-                        s.getFecha(),
-                        s.getHora() != null ? s.getHora().toString() : null,
-                        s.getEstado() != null ? s.getEstado().name() : null,
+                        tituloFor(s.getCategoria()),
                         s.getCategoria() != null ? s.getCategoria().name() : null,
-                        "ARS",
-                        s.getUbicacion()
+                        s.getUbicacion(),
+                        fechaFinIso(s),
+                        countPorSubasta.getOrDefault(s.getId(), 0L).intValue(),
+                        imagenFor(s.getCategoria())
                 ))
                 .toList();
+    }
+
+    private String tituloFor(CategoriaSubasta cat) {
+        if (cat == null) return "Subasta";
+        return switch (cat) {
+            case pokemon           -> "Subasta de Pokémon";
+            case maquinas_tecnicas -> "Subasta de Máquinas Técnicas";
+            case pociones          -> "Subasta de Pociones";
+            default                -> "Subasta — " + cat.name();
+        };
+    }
+
+    private String imagenFor(CategoriaSubasta cat) {
+        if (cat == null) return null;
+        return switch (cat) {
+            case pokemon           -> "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png";
+            case maquinas_tecnicas -> "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/149.png";
+            case pociones          -> "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/39.png";
+            default                -> null;
+        };
+    }
+
+    private String fechaFinIso(Subasta s) {
+        if (s.getFecha() == null) return null;
+        String hora = s.getHora() != null ? s.getHora().toString() : "23:59:00";
+        return s.getFecha() + "T" + hora;
     }
 
     @Transactional(readOnly = true)
@@ -167,16 +197,20 @@ public class SubastaService {
 
     @Transactional(readOnly = true)
     public List<SubastaResponse> obtenerParticipaciones(Long clienteId) {
-        return asistenteRepository.findByClienteId(clienteId).stream()
+        List<Subasta> subastas = asistenteRepository.findByClienteId(clienteId).stream()
                 .map(a -> a.getSubasta())
+                .toList();
+        List<Long> ids = subastas.stream().map(Subasta::getId).toList();
+        Map<Long, Long> counts = itemCatalogoRepository.countBySubastaIds(ids);
+        return subastas.stream()
                 .map(s -> new SubastaResponse(
                         s.getId(),
-                        s.getFecha(),
-                        s.getHora() != null ? s.getHora().toString() : null,
-                        s.getEstado() != null ? s.getEstado().name() : null,
+                        tituloFor(s.getCategoria()),
                         s.getCategoria() != null ? s.getCategoria().name() : null,
-                        "ARS",
-                        s.getUbicacion()
+                        s.getUbicacion(),
+                        fechaFinIso(s),
+                        counts.getOrDefault(s.getId(), 0L).intValue(),
+                        imagenFor(s.getCategoria())
                 ))
                 .toList();
     }

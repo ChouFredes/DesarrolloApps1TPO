@@ -177,8 +177,8 @@ class AuthServiceTest {
         LoginResponse response = authService.login(request);
 
         assertNotNull(response);
-        assertNotNull(response.token());
-        assertEquals("access-token-xyz", response.token());
+        assertNotNull(response.accessToken());
+        assertEquals("access-token-xyz", response.accessToken());
         assertEquals("refresh-token-xyz", response.refreshToken());
         assertEquals(1L, response.usuarioId());
         assertEquals("comun", response.categoria());

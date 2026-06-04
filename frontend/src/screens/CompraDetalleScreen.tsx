@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import {
   View,
   Text,
@@ -7,19 +7,32 @@ import {
   TouchableOpacity,
   ActivityIndicator,
   Image,
+  Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import axios from 'axios';
 import { colors, spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
+import { MOCK_COMPRA } from '../mocks/data';
 
-type NavProp = StackNavigationProp<ProfileStackParamList, 'CompraDetalle'>;
+const DEV_MODE = true;
+
+// ---------------------------------------------------------------------------
+// Types
+// ---------------------------------------------------------------------------
 type RouteProps = RouteProp<ProfileStackParamList, 'CompraDetalle'>;
+
+type EstadoCompra =
+  | 'PENDIENTE_DE_PAGO'
+  | 'PAGADA'
+  | 'EN_PREPARACION'
+  | 'EN_CAMINO'
+  | 'ENTREGADO'
+  | 'CANCELADA';
 
 interface CompraDetalle {
   id: number;
@@ -31,15 +44,86 @@ interface CompraDetalle {
   comision: number;
   costoEnvio: number;
   total: number;
-  estado: string;
+  estado: EstadoCompra;
   retiroPersonal?: boolean;
   fechaSubasta?: string;
 }
 
+// Adaptamos MOCK_COMPRA al shape de CompraDetalle
+const MOCK_COMPRA_DETALLE: CompraDetalle = {
+  id: MOCK_COMPRA.id,
+  articulo: {
+    nombre: MOCK_COMPRA.descripcionProducto,
+    imagenUrl: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800',
+  },
+  precioSubastado: MOCK_COMPRA.importe,
+  comision: MOCK_COMPRA.comision,
+  costoEnvio: MOCK_COMPRA.costoEnvio,
+  total: MOCK_COMPRA.totalAPagar,
+  estado: 'PENDIENTE_DE_PAGO',
+  retiroPersonal: MOCK_COMPRA.retiroPersonal,
+  fechaSubasta: new Date(Date.now() - 3600000).toISOString(),
+};
+
+// ---------------------------------------------------------------------------
+// Helpers
+// ---------------------------------------------------------------------------
 function formatCurrency(value: number): string {
   return `$ ${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
 }
 
+type EstadoConfig = {
+  label: string;
+  color: string;
+  bg: string;
+  icon: React.ComponentProps<typeof Ionicons>['name'];
+};
+
+function getEstadoConfig(estado: EstadoCompra): EstadoConfig {
+  const map: Record<EstadoCompra, EstadoConfig> = {
+    PENDIENTE_DE_PAGO: {
+      label: 'Pendiente de pago',
+      color: '#B45309',
+      bg: '#FEF3C7',
+      icon: 'time-outline',
+    },
+    PAGADA: {
+      label: 'Pagada',
+      color: colors.success,
+      bg: '#D1FAE5',
+      icon: 'checkmark-circle-outline',
+    },
+    EN_PREPARACION: {
+      label: 'En preparación',
+      color: '#1D4ED8',
+      bg: '#DBEAFE',
+      icon: 'construct-outline',
+    },
+    EN_CAMINO: {
+      label: 'En camino',
+      color: '#7C3AED',
+      bg: '#EDE9FE',
+      icon: 'bicycle-outline',
+    },
+    ENTREGADO: {
+      label: 'Entregado',
+      color: colors.success,
+      bg: '#D1FAE5',
+      icon: 'checkmark-done-circle-outline',
+    },
+    CANCELADA: {
+      label: 'Cancelada',
+      color: colors.error,
+      bg: '#FEE2E2',
+      icon: 'close-circle-outline',
+    },
+  };
+  return map[estado] ?? map['PENDIENTE_DE_PAGO'];
+}
+
+// ---------------------------------------------------------------------------
+// Sub-components
+// ---------------------------------------------------------------------------
 function PriceRow({
   label,
   value,
@@ -72,8 +156,22 @@ function PriceRow({
   );
 }
 
+function EstadoBadge({ estado }: { estado: EstadoCompra }) {
+  const cfg = getEstadoConfig(estado);
+  return (
+    <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
+      <Ionicons name={cfg.icon} size={14} color={cfg.color} />
+      <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
+    </View>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Screen
+// ---------------------------------------------------------------------------
 export function CompraDetalleScreen() {
-  const navigation = useNavigation<NavProp>();
+  // useNavigation typed as any to allow cross-stack navigation (Home > PostSubastaGanador)
+  const navigation = useNavigation<any>();
   const route = useRoute<RouteProps>();
   const { compraId } = route.params;
   const { token, user } = useAuthStore();
@@ -82,7 +180,23 @@ export function CompraDetalleScreen() {
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
 
+  // Entrance animation for the main card
+  const cardOpacity = useRef(new Animated.Value(0)).current;
+  const cardTranslate = useRef(new Animated.Value(16)).current;
+
   useEffect(() => {
+    Animated.parallel([
+      Animated.timing(cardOpacity, { toValue: 1, duration: 350, useNativeDriver: true }),
+      Animated.timing(cardTranslate, { toValue: 0, duration: 350, useNativeDriver: true }),
+    ]).start();
+  }, [cardOpacity, cardTranslate]);
+
+  useEffect(() => {
+    if (DEV_MODE) {
+      setCompra(MOCK_COMPRA_DETALLE);
+      setLoading(false);
+      return;
+    }
     if (!user?.id) return;
     const load = async () => {
       try {
@@ -100,6 +214,14 @@ export function CompraDetalleScreen() {
     };
     load();
   }, [compraId, token, user]);
+
+  const handlePagar = () => {
+    // Cross-stack navigation: Home tab → PostSubastaGanador screen
+    navigation.navigate('Home', {
+      screen: 'PostSubastaGanador',
+      params: { compraId: compra?.id ?? compraId },
+    });
+  };
 
   const renderHeader = () => (
     <View style={styles.header}>
@@ -137,79 +259,108 @@ export function CompraDetalleScreen() {
     );
   }
 
+  const estadoCfg = getEstadoConfig(compra.estado);
+  const isPendiente = compra.estado === 'PENDIENTE_DE_PAGO';
+
   return (
     <SafeAreaView style={styles.safe}>
       {renderHeader()}
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Item card */}
-        <View style={styles.itemCard}>
-          <View style={styles.itemThumb}>
-            {compra.articulo?.imagenUrl ? (
-              <Image
-                source={{ uri: compra.articulo.imagenUrl }}
-                style={styles.itemThumbImage}
-                resizeMode="cover"
-              />
-            ) : (
-              <View style={styles.itemThumbPlaceholder}>
-                <Ionicons name="image-outline" size={28} color={colors.textSecondary} />
-              </View>
-            )}
-          </View>
-          <View style={styles.itemInfo}>
-            <Text style={styles.itemName} numberOfLines={3}>
-              {compra.articulo?.nombre ?? 'Artículo'}
-            </Text>
-            {compra.fechaSubasta && (
-              <Text style={styles.itemDate}>
-                {new Date(compra.fechaSubasta).toLocaleDateString('es-AR', {
-                  day: '2-digit',
-                  month: 'long',
-                  year: 'numeric',
-                })}
+        <Animated.View
+          style={{ opacity: cardOpacity, transform: [{ translateY: cardTranslate }] }}
+        >
+          {/* Item card */}
+          <View style={styles.itemCard}>
+            <View style={styles.itemThumb}>
+              {compra.articulo?.imagenUrl ? (
+                <Image
+                  source={{ uri: compra.articulo.imagenUrl }}
+                  style={styles.itemThumbImage}
+                  resizeMode="cover"
+                />
+              ) : (
+                <View style={styles.itemThumbPlaceholder}>
+                  <Ionicons name="image-outline" size={28} color={colors.textSecondary} />
+                </View>
+              )}
+            </View>
+            <View style={styles.itemInfo}>
+              <Text style={styles.itemName} numberOfLines={3}>
+                {compra.articulo?.nombre ?? 'Artículo'}
               </Text>
-            )}
-            {compra.retiroPersonal && (
-              <View style={styles.retiroBadge}>
-                <Ionicons name="walk-outline" size={14} color={colors.accent} />
-                <Text style={styles.retiroText}>Retiro personal</Text>
-              </View>
-            )}
+              {compra.fechaSubasta && (
+                <Text style={styles.itemDate}>
+                  {new Date(compra.fechaSubasta).toLocaleDateString('es-AR', {
+                    day: '2-digit',
+                    month: 'long',
+                    year: 'numeric',
+                  })}
+                </Text>
+              )}
+              {compra.retiroPersonal && (
+                <View style={styles.retiroBadge}>
+                  <Ionicons name="walk-outline" size={14} color={colors.accent} />
+                  <Text style={styles.retiroText}>Retiro personal</Text>
+                </View>
+              )}
+            </View>
           </View>
-        </View>
 
-        {/* Price breakdown */}
-        <View style={styles.priceCard}>
-          <Text style={styles.sectionTitle}>Resumen de pago</Text>
-
-          <PriceRow label="Precio subastado" value={compra.precioSubastado} />
-          <PriceRow label="Comisión" value={compra.comision} />
-          <PriceRow label="Costo de envío" value={compra.costoEnvio} />
-
-          <View style={styles.divider} />
-
-          <PriceRow label="Total a pagar" value={compra.total} bold accent large />
-        </View>
-
-        {/* Status */}
-        <View style={styles.statusCard}>
-          <Ionicons
-            name={compra.estado === 'ENTREGADO' ? 'checkmark-circle' : 'time-outline'}
-            size={24}
-            color={compra.estado === 'ENTREGADO' ? colors.success : colors.accent}
-          />
-          <View style={styles.statusInfo}>
-            <Text style={styles.statusTitle}>
-              {compra.estado === 'ENTREGADO' ? 'Entregado' : 'Pendiente de entrega'}
-            </Text>
-            <Text style={styles.statusSubtitle}>
-              {compra.estado === 'ENTREGADO'
-                ? 'Tu artículo fue entregado correctamente.'
-                : 'Tu compra está siendo procesada.'}
-            </Text>
+          {/* Estado badge card */}
+          <View style={styles.statusCard}>
+            <View style={[styles.statusIconWrap, { backgroundColor: estadoCfg.bg }]}>
+              <Ionicons name={estadoCfg.icon} size={24} color={estadoCfg.color} />
+            </View>
+            <View style={styles.statusInfo}>
+              <Text style={styles.statusTitle}>Estado de la compra</Text>
+              <EstadoBadge estado={compra.estado} />
+            </View>
           </View>
-        </View>
+
+          {/* Price breakdown */}
+          <View style={styles.priceCard}>
+            <Text style={styles.sectionTitle}>Resumen de pago</Text>
+
+            <PriceRow label="Precio subastado" value={compra.precioSubastado} />
+            <PriceRow label="Comisión" value={compra.comision} />
+            <PriceRow label="Costo de envío" value={compra.costoEnvio} />
+
+            <View style={styles.divider} />
+
+            {/* Total highlighted */}
+            <View style={styles.totalRow}>
+              <Text style={styles.totalLabel}>Total a pagar</Text>
+              <Text style={styles.totalValue}>{formatCurrency(compra.total)}</Text>
+            </View>
+          </View>
+
+          {/* Pay button — only shown when pending */}
+          {isPendiente && (
+            <TouchableOpacity
+              style={styles.pagarBtn}
+              onPress={handlePagar}
+              activeOpacity={0.85}
+            >
+              <Ionicons name="card-outline" size={20} color="#fff" />
+              <Text style={styles.pagarText}>Pagar ahora</Text>
+            </TouchableOpacity>
+          )}
+
+          {/* Info row when not pending */}
+          {!isPendiente && (
+            <View style={[styles.infoRow, { borderColor: estadoCfg.color + '40', backgroundColor: estadoCfg.bg }]}>
+              <Ionicons name="information-circle-outline" size={18} color={estadoCfg.color} />
+              <Text style={[styles.infoText, { color: estadoCfg.color }]}>
+                {compra.estado === 'ENTREGADO'
+                  ? 'Tu artículo fue entregado correctamente.'
+                  : compra.estado === 'CANCELADA'
+                  ? 'Esta compra fue cancelada.'
+                  : 'Tu compra está siendo procesada.'}
+              </Text>
+            </View>
+          )}
+        </Animated.View>
       </ScrollView>
     </SafeAreaView>
   );
@@ -257,11 +408,15 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.xl,
   },
   retryText: { color: '#fff', fontWeight: '600' },
+
   scrollContent: {
     paddingHorizontal: spacing.base,
+    paddingTop: spacing.sm,
     paddingBottom: spacing.xxl,
     gap: spacing.base,
   },
+
+  // Item card
   itemCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
@@ -269,6 +424,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     gap: spacing.md,
     ...shadows.card,
+    marginBottom: spacing.base,
   },
   itemThumb: {
     width: 90,
@@ -314,12 +470,61 @@ const styles = StyleSheet.create({
     color: colors.accent,
     fontWeight: '600',
   },
+
+  // Status card
+  statusCard: {
+    backgroundColor: colors.surface,
+    borderRadius: borderRadius.md,
+    padding: spacing.base,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.md,
+    ...shadows.card,
+    marginBottom: spacing.base,
+  },
+  statusIconWrap: {
+    width: 48,
+    height: 48,
+    borderRadius: borderRadius.md,
+    justifyContent: 'center',
+    alignItems: 'center',
+    flexShrink: 0,
+  },
+  statusInfo: {
+    flex: 1,
+    gap: spacing.xs,
+  },
+  statusTitle: {
+    fontSize: 12,
+    color: colors.textSecondary,
+    fontWeight: '500',
+  },
+
+  // Badge
+  badge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    alignSelf: 'flex-start',
+    paddingHorizontal: spacing.sm,
+    paddingVertical: 4,
+    borderRadius: borderRadius.full,
+  },
+  badgeText: {
+    fontSize: 12,
+    fontWeight: '700',
+    textTransform: 'uppercase',
+    letterSpacing: 0.4,
+  },
+
+  // Price card
   priceCard: {
     backgroundColor: colors.surface,
     borderRadius: borderRadius.md,
     padding: spacing.base,
     gap: spacing.sm,
     ...shadows.card,
+    marginBottom: spacing.base,
   },
   sectionTitle: {
     fontSize: 16,
@@ -364,26 +569,62 @@ const styles = StyleSheet.create({
     backgroundColor: colors.border,
     marginVertical: spacing.xs,
   },
-  statusCard: {
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.base,
+
+  // Total highlighted row
+  totalRow: {
     flexDirection: 'row',
+    justifyContent: 'space-between',
     alignItems: 'center',
-    gap: spacing.md,
-    ...shadows.card,
+    backgroundColor: 'rgba(245,166,35,0.12)',
+    borderWidth: 1,
+    borderColor: 'rgba(245,166,35,0.4)',
+    borderRadius: borderRadius.sm,
+    paddingHorizontal: spacing.md,
+    paddingVertical: spacing.sm,
+    marginTop: spacing.xs,
   },
-  statusInfo: {
-    flex: 1,
-    gap: spacing.xs,
-  },
-  statusTitle: {
-    fontSize: 14,
+  totalLabel: {
+    fontSize: 15,
     fontWeight: '700',
     color: colors.text,
   },
-  statusSubtitle: {
-    fontSize: 12,
-    color: colors.textSecondary,
+  totalValue: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: colors.text,
+  },
+
+  // Pay button
+  pagarBtn: {
+    backgroundColor: colors.primary,
+    borderRadius: borderRadius.md,
+    paddingVertical: spacing.lg,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    ...shadows.card,
+    marginBottom: spacing.base,
+  },
+  pagarText: {
+    color: '#fff',
+    fontWeight: '700',
+    fontSize: 16,
+  },
+
+  // Info row (non-pending states)
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    borderWidth: 1,
+    borderRadius: borderRadius.sm,
+    padding: spacing.md,
+    marginBottom: spacing.base,
+  },
+  infoText: {
+    flex: 1,
+    fontSize: 13,
+    fontWeight: '500',
   },
 });

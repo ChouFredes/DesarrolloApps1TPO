@@ -29,7 +29,7 @@ public class Notificacion {
     @Column(name = "titulo", nullable = false)
     private String titulo;
 
-    @Column(name = "cuerpo", columnDefinition = "NVARCHAR(MAX)")
+    @Column(name = "cuerpo", columnDefinition = "TEXT")
     private String cuerpo;
 
     @Column(name = "leida", nullable = false)

@@ -1,250 +1,585 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import {
   View,
   Text,
   StyleSheet,
-  FlatList,
   TouchableOpacity,
-  ActivityIndicator,
   ScrollView,
+  RefreshControl,
   Dimensions,
-  Alert,
+  Animated,
+  Easing,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import axios from 'axios';
-import { colors, spacing, borderRadius, shadows } from '../theme';
-import { ItemCard } from '../components/ItemCard';
-import { useAuthStore } from '../stores/authStore';
-import { API_BASE_URL } from '../config/api';
+import { MOCK_SUBASTAS, MOCK_ITEMS_POR_CATALOGO } from '../mocks/data';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
+
+const DARK = {
+  bg:       '#F4EEE8',
+  card:     '#FFFFFF',
+  text:     '#1A1201',
+  textSub:  '#8C7B6B',
+  accent:   '#F5A623',
+  inactive: '#B8A898',
+};
+
+// Pantone-inspired level colors — the "chip" accent for each tier
+const LEVEL_COLORS: Record<string, string> = {
+  comun: '#888888',
+  especial: '#3A7BD5',
+  plata: '#B0B8C1',
+  oro: '#E8A020',
+  platino: '#9B59B6',
+};
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'Catalogo'>;
 type RouteProps = RouteProp<HomeStackParamList, 'Catalogo'>;
-
-interface Subasta {
-  id: number;
-  nombre: string;
-  descripcion: string;
-  precioBase: number;
-  fechaFin: string;
-  categoria: string;
-  imagenUrl?: string;
-  subastadorNombre?: string;
-  subastadorApellido?: string;
-  items?: { id: number; nombre: string; imagenUrl?: string }[];
-}
+type Subasta = typeof MOCK_SUBASTAS[0];
 
 const CATEGORIAS = [
-  { key: 'TODOS', label: 'Todos' },
-  { key: 'ARTE', label: 'Arte' },
-  { key: 'JOYAS', label: 'Joyas' },
-  { key: 'RELOJES', label: 'Relojes' },
-  { key: 'VEHICULOS', label: 'Vehículos' },
+  { key: 'todos', label: 'Todos' },
+  { key: 'comun', label: 'Común' },
+  { key: 'especial', label: 'Especial' },
+  { key: 'plata', label: 'Plata' },
+  { key: 'oro', label: 'Oro' },
+  { key: 'platino', label: 'Platino' },
 ];
 
-const { width } = Dimensions.get('window');
-const CARD_WIDTH = (width - spacing.base * 2 - spacing.md) / 2;
+const { width: SW } = Dimensions.get('window');
+const PAD = 12;
+const GAP = 8;
+const AVAIL = SW - PAD * 2 - GAP;
+const WL = Math.floor(AVAIL * 0.56);
+const WR = Math.floor(AVAIL * 0.44);
 
+const AR_SEEDS = [0.75, 0.9, 1.15, 0.65, 1.25, 0.82, 1.0, 0.7, 1.35, 0.88];
+const AR_CACHE: Record<string, number> = {};
+
+function seedAR(id: number): number { return AR_SEEDS[id % AR_SEEDS.length]; }
+function clampH(h: number): number { return Math.min(Math.max(Math.round(h), 90), 300); }
+
+// ── Hooks ──────────────────────────────────────────────────────────────────
+
+function useAspectRatio(url: string, fallback: number): number {
+  const [ar, setAr] = useState(() => AR_CACHE[url] ?? fallback);
+  useEffect(() => {
+    if (!url || AR_CACHE[url] !== undefined) return;
+    Image.getSize(
+      url,
+      (w, h) => { if (h > 0) { AR_CACHE[url] = w / h; setAr(w / h); } },
+      () => {},
+    );
+  }, [url]);
+  return ar;
+}
+
+function useCountdownBoth(fechaFin: string) {
+  const [t, setT] = useState({ full: '--:--:--', short: '--:--' });
+  useEffect(() => {
+    const tick = () => {
+      const diff = new Date(fechaFin).getTime() - Date.now();
+      if (diff <= 0) { setT({ full: 'Finalizado', short: 'Fin' }); return; }
+      const h = Math.floor(diff / 3_600_000);
+      const m = Math.floor((diff % 3_600_000) / 60_000);
+      const s = Math.floor((diff % 60_000) / 1_000);
+      const full = `${String(h).padStart(2, '0')}:${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      const short = h >= 1 ? `${h}h ${m}m` : `${String(m).padStart(2, '0')}:${String(s).padStart(2, '0')}`;
+      setT({ full, short });
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [fechaFin]);
+  return t;
+}
+
+// ── Masonry balancing ──────────────────────────────────────────────────────
+function balanceColumns(items: Subasta[]) {
+  const L: Subasta[] = [], R: Subasta[] = [];
+  let lH = 0, rH = 0;
+  for (const item of items) {
+    const ar = AR_CACHE[item.imagenUrl] ?? seedAR(item.id);
+    const lCard = clampH(WL / ar) + 72;
+    const rCard = clampH(WR / ar) + 64;
+    if (lH <= rH) { L.push(item); lH += lCard + GAP; }
+    else { R.push(item); rH += rCard + GAP; }
+  }
+  return { L, R };
+}
+
+// ── AuctionCard ─────────────────────────────────────────────────────────────
+interface CardProps {
+  item: Subasta;
+  gIdx: number;
+  colWidth: number;
+  isScrolling: boolean;
+  compact: boolean;
+  onPress: () => void;
+}
+
+function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: CardProps) {
+  const ar = useAspectRatio(item.imagenUrl, seedAR(item.id));
+  const imgH = clampH(colWidth / ar);
+  const { full, short } = useCountdownBoth(item.fechaFin);
+
+  const imgs = (MOCK_ITEMS_POR_CATALOGO[item.id] ?? [])
+    .slice(0, 4).map(i => i.imagenUrl).filter(Boolean);
+
+  const levelColor = LEVEL_COLORS[item.categoria] ?? '#888888';
+
+  // Entry animation
+  const entryAnim = useRef(new Animated.Value(0)).current;
+
+  // Ken Burns — applied to a container wrapping both image slots
+  const kbScale = useRef(new Animated.Value(1)).current;
+  const kbAnimRef = useRef<Animated.CompositeAnimation | null>(null);
+
+  // Ping-pong image slots — avoids flash when swapping current image
+  // slotA starts as front (fadeA=1), slotB is preloaded back (fadeB=0)
+  const [slotA, setSlotA] = useState(() => imgs[0] ?? '');
+  const [slotB, setSlotB] = useState(() => imgs[1] ?? '');
+  const [dotIdx, setDotIdx] = useState(0);
+  const fadeA = useRef(new Animated.Value(1)).current;
+  const fadeB = useRef(new Animated.Value(0)).current;
+  const frontIsA = useRef(true);
+  const nextLoadIdx = useRef(2 % Math.max(imgs.length, 1));
+
+  // Cycle management
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const startedRef = useRef(0);
+  const elapsedRef = useRef(0);
+  const cyclingRef = useRef(false);
+
+  const DISPLAY_MS = 6000;
+  const FADE_MS = 650;
+
+  const doKenBurns = useCallback((duration: number) => {
+    kbAnimRef.current?.stop();
+    // No setValue(1) — continue from current scale to avoid visual snap
+    kbAnimRef.current = Animated.timing(kbScale, {
+      toValue: 1.06,
+      duration,
+      easing: Easing.linear,
+      useNativeDriver: true,
+    });
+    kbAnimRef.current.start();
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // cycleRef pattern — closure always reads latest state/refs
+  const cycleRef = useRef<() => void>(() => {});
+  cycleRef.current = () => {
+    if (imgs.length <= 1) return;
+    kbAnimRef.current?.stop();
+
+    const aIsFront = frontIsA.current;
+    const fromFade = aIsFront ? fadeA : fadeB;
+    const toFade   = aIsFront ? fadeB : fadeA;
+
+    Animated.parallel([
+      Animated.timing(fromFade, { toValue: 0, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(toFade,   { toValue: 1, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+    ]).start(({ finished }) => {
+      if (!finished) return;
+
+      // Swap which slot is the visible front — no opacity resets needed
+      frontIsA.current = !aIsFront;
+
+      // Advance dot
+      setDotIdx(d => (d + 1) % imgs.length);
+
+      // Preload next image into the now-hidden slot (invisible → no visual glitch)
+      const nextIdx = nextLoadIdx.current;
+      nextLoadIdx.current = (nextIdx + 1) % imgs.length;
+      if (aIsFront) setSlotA(imgs[nextIdx]);
+      else          setSlotB(imgs[nextIdx]);
+
+      elapsedRef.current = 0;
+      doKenBurns(DISPLAY_MS + FADE_MS);
+      startedRef.current = Date.now();
+      timerRef.current = setTimeout(() => cycleRef.current(), DISPLAY_MS);
+    });
+  };
+
+  // Mount: entry anim then start cycling
+  useEffect(() => {
+    Animated.timing(entryAnim, {
+      toValue: 1,
+      duration: 380,
+      delay: Math.min(gIdx * 55, 440),
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start(({ finished }) => {
+      if (finished && !cyclingRef.current && imgs.length > 1) {
+        cyclingRef.current = true;
+        doKenBurns(DISPLAY_MS * 1.8);
+        startedRef.current = Date.now();
+        // Stagger per card so they don't all animate simultaneously
+        const stagger = DISPLAY_MS * 1.5 + (gIdx % 8) * 750;
+        timerRef.current = setTimeout(() => cycleRef.current(), stagger);
+      }
+    });
+    return () => {
+      if (timerRef.current) clearTimeout(timerRef.current);
+      kbAnimRef.current?.stop();
+    };
+  }, []); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Pause on scroll / resume on settle
+  useEffect(() => {
+    if (!cyclingRef.current) return;
+    if (isScrolling) {
+      if (timerRef.current) {
+        clearTimeout(timerRef.current);
+        kbAnimRef.current?.stop();
+        elapsedRef.current += Date.now() - startedRef.current;
+      }
+    } else {
+      const rem = Math.max(0, DISPLAY_MS - elapsedRef.current);
+      doKenBurns(rem + FADE_MS);
+      startedRef.current = Date.now();
+      timerRef.current = setTimeout(() => cycleRef.current(), rem);
+    }
+  }, [isScrolling, doKenBurns]);
+
+  const translateY = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
+
+  return (
+    <Animated.View style={[s.card, { opacity: entryAnim, transform: [{ translateY }] }]}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={{ flex: 1 }}>
+
+        {/* ── Image area ── */}
+        <View style={[s.imgBox, { height: imgH }]}>
+          {imgs.length > 0 ? (
+            // Ken Burns applied to inner wrapper — both slots scale together
+            <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: kbScale }] }]}>
+              <Animated.Image
+                source={{ uri: slotA }}
+                style={[StyleSheet.absoluteFillObject, { opacity: fadeA }]}
+                resizeMode="cover"
+              />
+              {imgs.length > 1 && (
+                <Animated.Image
+                  source={{ uri: slotB }}
+                  style={[StyleSheet.absoluteFillObject, { opacity: fadeB }]}
+                  resizeMode="cover"
+                />
+              )}
+            </Animated.View>
+          ) : (
+            <View style={[StyleSheet.absoluteFillObject, s.imgEmpty]}>
+              <Ionicons name="image-outline" size={26} color="#444" />
+            </View>
+          )}
+
+          {/* Dots outside the scaled container */}
+          {imgs.length >= 2 && (
+            <View style={s.dotsRow} pointerEvents="none">
+              {imgs.slice(0, 4).map((_, i) => (
+                <View key={i} style={i === dotIdx ? s.dotOn : s.dotOff} />
+              ))}
+            </View>
+          )}
+        </View>
+
+        {/* ── Pantone level bar ── */}
+        <View style={[s.levelBar, { backgroundColor: levelColor }]} />
+
+        {/* ── Pantone info chip ── */}
+        <View style={[s.info, compact && s.infoCompact, { borderLeftColor: levelColor }]}>
+          <Text style={[s.name, compact && s.nameSm]} numberOfLines={compact ? 1 : 2}>
+            {item.nombre}
+          </Text>
+          <Text style={[s.timerCode, compact && s.timerCodeSm]}>
+            {compact ? short : full}
+          </Text>
+        </View>
+
+      </TouchableOpacity>
+    </Animated.View>
+  );
+}
+
+// ── CatalogoScreen ─────────────────────────────────────────────────────────
 export function CatalogoScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
-  const { token } = useAuthStore();
-
-  const initialCat = route.params?.categoriaInicial ?? 'TODOS';
+  const initialCat = route.params?.categoriaInicial?.toLowerCase() ?? 'todos';
   const [selectedCat, setSelectedCat] = useState(initialCat);
   const [subastas, setSubastas] = useState<Subasta[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [error, setError] = useState<string | null>(null);
-  const [joiningId, setJoiningId] = useState<number | null>(null);
+  const [refreshing, setRefreshing] = useState(false);
+  const [isScrolling, setIsScrolling] = useState(false);
 
-  const fetchSubastas = useCallback(async () => {
-    try {
-      setError(null);
-      setLoading(true);
-      const res = await axios.get<Subasta[]>(`${API_BASE_URL}/subastas/abiertas`, {
-        headers: { Authorization: `Bearer ${token}` },
-      });
-      setSubastas(res.data);
-    } catch {
-      setError('No se pudo cargar el catálogo. Intente nuevamente.');
-    } finally {
-      setLoading(false);
-    }
-  }, [token]);
+  const loadMocks = useCallback(() => setSubastas(MOCK_SUBASTAS), []);
+  useEffect(() => { loadMocks(); }, [loadMocks]);
 
-  useEffect(() => {
-    fetchSubastas();
-  }, [fetchSubastas]);
-
-  const filteredSubastas =
-    selectedCat === 'TODOS'
-      ? subastas
-      : subastas.filter((s) => s.categoria?.toUpperCase() === selectedCat);
-
-  const handleJoin = async (subasta: Subasta) => {
-    setJoiningId(subasta.id);
-    try {
-      await axios.post(
-        `${API_BASE_URL}/subastas/${subasta.id}/conectar`,
-        {},
-        { headers: { Authorization: `Bearer ${token}` } },
-      );
-      const itemId = subasta.items?.[0]?.id ?? subasta.id;
-      navigation.navigate('AuctionRoom', {
-        subastaId: subasta.id,
-        itemId,
-        itemName: subasta.nombre,
-      });
-    } catch (e: any) {
-      const msg =
-        e?.response?.data?.message ?? 'No se pudo conectar a la subasta. Intente nuevamente.';
-      Alert.alert('Error', msg);
-    } finally {
-      setJoiningId(null);
-    }
+  const onRefresh = () => {
+    setRefreshing(true);
+    setTimeout(() => { loadMocks(); setRefreshing(false); }, 800);
   };
 
-  const renderItem = ({ item, index }: { item: Subasta; index: number }) => {
-    const creatorName =
-      item.subastadorNombre
-        ? `${item.subastadorNombre} ${item.subastadorApellido ?? ''}`.trim()
-        : 'Subastador';
-    const imageUrl = item.items?.[0]?.imagenUrl ?? item.imagenUrl;
-    const isJoining = joiningId === item.id;
+  const filtered = selectedCat === 'todos'
+    ? subastas
+    : subastas.filter(s => s.categoria?.toLowerCase() === selectedCat);
 
-    return (
-      <ItemCard
-        imageUrl={imageUrl}
-        creatorName={creatorName}
-        itemName={item.nombre}
-        precioBase={`$ ${item.precioBase.toLocaleString()}`}
-        showJoinButton
-        onJoin={() => handleJoin(item)}
-        onPress={() =>
-          navigation.navigate('ItemDetail', {
-            itemId: item.items?.[0]?.id ?? item.id,
-            subastaId: item.id,
-          })
-        }
-        style={StyleSheet.flatten([
-          styles.card,
-          index % 2 === 0 ? { marginRight: spacing.md / 2 } : { marginLeft: spacing.md / 2 },
-        ])}
-      />
-    );
-  };
+  const { L: leftItems, R: rightItems } = balanceColumns(filtered);
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={s.safe}>
       {/* Header */}
-      <View style={styles.header}>
-        <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-          <Ionicons name="arrow-back" size={24} color={colors.text} />
+      <View style={s.header}>
+        <TouchableOpacity style={s.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.75}>
+          <Ionicons name="arrow-back" size={20} color={DARK.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Catálogo</Text>
-        <View style={styles.headerSpacer} />
+        <Text style={s.headerTitle}>Catálogos</Text>
+        <View style={s.countBadge}>
+          <Text style={s.countTxt}>{filtered.length}</Text>
+        </View>
       </View>
 
       {/* Category tabs */}
       <ScrollView
         horizontal
         showsHorizontalScrollIndicator={false}
-        contentContainerStyle={styles.tabsContent}
-        style={styles.tabsRow}
+        contentContainerStyle={s.tabsContent}
+        style={s.tabsBar}
       >
-        {CATEGORIAS.map((cat) => {
+        {CATEGORIAS.map(cat => {
           const active = selectedCat === cat.key;
+          const levelCol = LEVEL_COLORS[cat.key];
           return (
             <TouchableOpacity
               key={cat.key}
-              style={[styles.tab, active && styles.tabActive]}
               onPress={() => setSelectedCat(cat.key)}
-              activeOpacity={0.8}
+              activeOpacity={0.7}
+              style={s.tab}
             >
-              <Text style={[styles.tabText, active && styles.tabTextActive]}>{cat.label}</Text>
+              {levelCol && (
+                <View style={[s.tabDot, { backgroundColor: active ? levelCol : DARK.inactive }]} />
+              )}
+              <Text style={[s.tabTxt, active && s.tabTxtOn]}>{cat.label}</Text>
+              {active && <View style={[s.tabLine, levelCol ? { backgroundColor: levelCol } : null]} />}
             </TouchableOpacity>
           );
         })}
       </ScrollView>
 
-      {/* Content */}
-      {loading ? (
-        <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.accent} />
-        </View>
-      ) : error ? (
-        <View style={styles.centered}>
-          <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
-          <Text style={styles.errorText}>{error}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={fetchSubastas}>
-            <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        <FlatList
-          data={filteredSubastas}
-          keyExtractor={(item) => item.id.toString()}
-          numColumns={2}
-          contentContainerStyle={styles.listContent}
-          columnWrapperStyle={styles.columnWrapper}
-          showsVerticalScrollIndicator={false}
-          ListEmptyComponent={
-            <View style={styles.emptyState}>
-              <Ionicons name="archive-outline" size={48} color={colors.textSecondary} />
-              <Text style={styles.emptyText}>No hay subastas en esta categoría.</Text>
+      {/* Masonry grid */}
+      <ScrollView
+        contentContainerStyle={s.gridWrap}
+        showsVerticalScrollIndicator={false}
+        refreshControl={
+          <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={DARK.accent} />
+        }
+        onScrollBeginDrag={() => setIsScrolling(true)}
+        onScrollEndDrag={() => setIsScrolling(false)}
+        onMomentumScrollEnd={() => setIsScrolling(false)}
+      >
+        {filtered.length === 0 ? (
+          <View style={s.empty}>
+            <Ionicons name="archive-outline" size={44} color="#333" />
+            <Text style={s.emptyTitle}>Sin resultados</Text>
+            <Text style={s.emptySub}>No hay subastas en esta categoría.</Text>
+          </View>
+        ) : (
+          <View style={s.grid}>
+            <View style={{ width: WL }}>
+              {leftItems.map((item, i) => (
+                <React.Fragment key={item.id}>
+                  {i > 0 && <View style={{ height: GAP }} />}
+                  <AuctionCard
+                    item={item}
+                    gIdx={i * 2}
+                    colWidth={WL}
+                    isScrolling={isScrolling}
+                    compact={false}
+                    onPress={() => navigation.navigate('CatalogoDetail', { subastaId: item.id })}
+                  />
+                </React.Fragment>
+              ))}
             </View>
-          }
-          renderItem={renderItem}
-        />
-      )}
+
+            <View style={{ width: GAP }} />
+
+            <View style={{ width: WR }}>
+              {rightItems.map((item, i) => (
+                <React.Fragment key={item.id}>
+                  {i > 0 && <View style={{ height: GAP }} />}
+                  <AuctionCard
+                    item={item}
+                    gIdx={i * 2 + 1}
+                    colWidth={WR}
+                    isScrolling={isScrolling}
+                    compact
+                    onPress={() => navigation.navigate('CatalogoDetail', { subastaId: item.id })}
+                  />
+                </React.Fragment>
+              ))}
+            </View>
+          </View>
+        )}
+      </ScrollView>
     </SafeAreaView>
   );
 }
 
 export default CatalogoScreen;
 
-const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+// ── Styles ─────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+  safe: { flex: 1, backgroundColor: DARK.bg },
+
   header: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
+    paddingHorizontal: PAD,
+    paddingTop: 4,
+    paddingBottom: 10,
+    gap: 12,
   },
-  backBtn: { padding: spacing.xs },
-  headerTitle: { flex: 1, textAlign: 'center', fontSize: 18, fontWeight: '700', color: colors.text },
-  headerSpacer: { width: 32 },
-  tabsRow: { flexGrow: 0 },
-  tabsContent: {
-    paddingHorizontal: spacing.base,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
+  backBtn: {
+    width: 36, height: 36,
+    borderRadius: 10,
+    backgroundColor: '#EDE8E1',
+    borderWidth: 1,
+    borderColor: '#DDD5CA',
+    justifyContent: 'center',
+    alignItems: 'center',
   },
+  headerTitle: {
+    flex: 1,
+    fontSize: 20,
+    fontWeight: '700',
+    color: DARK.text,
+    letterSpacing: -0.4,
+  },
+  countBadge: {
+    backgroundColor: '#EDE8E1',
+    borderRadius: 8,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderWidth: 1,
+    borderColor: '#DDD5CA',
+  },
+  countTxt: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: DARK.textSub,
+    fontVariant: ['tabular-nums'],
+  },
+
+  // Tabs
+  tabsBar: { flexGrow: 0, marginBottom: 10 },
+  tabsContent: { paddingHorizontal: PAD, gap: 4 },
   tab: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: '#E5E7EB',
-    marginRight: spacing.sm,
+    paddingHorizontal: 10,
+    paddingVertical: 8,
+    alignItems: 'center',
+    position: 'relative',
+    flexDirection: 'row',
+    gap: 5,
   },
-  tabActive: { backgroundColor: colors.primary },
-  tabText: { fontSize: 14, fontWeight: '500', color: colors.textSecondary },
-  tabTextActive: { color: '#fff', fontWeight: '600' },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md },
-  errorText: { color: colors.textSecondary, textAlign: 'center', marginHorizontal: spacing.xl },
-  retryBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.xl,
+  tabDot: {
+    width: 6,
+    height: 6,
+    borderRadius: 3,
   },
-  retryText: { color: '#fff', fontWeight: '600' },
-  listContent: { paddingHorizontal: spacing.base, paddingBottom: spacing.xl },
-  columnWrapper: { gap: spacing.md },
-  card: { width: CARD_WIDTH, marginBottom: spacing.md },
-  emptyState: { alignItems: 'center', paddingTop: spacing.xxl, gap: spacing.md },
-  emptyText: { color: colors.textSecondary, textAlign: 'center' },
+  tabTxt: { fontSize: 14, fontWeight: '500', color: DARK.inactive },
+  tabTxtOn: { color: DARK.text, fontWeight: '700' },
+  tabLine: {
+    position: 'absolute',
+    bottom: 2,
+    left: 6,
+    right: 6,
+    height: 2,
+    backgroundColor: DARK.text,
+    borderRadius: 1,
+  },
+
+  gridWrap: { paddingHorizontal: PAD, paddingBottom: 40 },
+  grid: { flexDirection: 'row' },
+
+  // ── Pantone card ──────────────────────────────────────────────────────────
+  card: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 3,
+    overflow: 'hidden',
+    shadowColor: '#8C6A4A',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.10,
+    shadowRadius: 6,
+    elevation: 2,
+  },
+  imgBox: {
+    overflow: 'hidden',
+    backgroundColor: '#E8E0D8',
+  },
+  imgEmpty: {
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#E8E0D8',
+  },
+
+  // Dot indicators (outside the Ken Burns container)
+  dotsRow: {
+    position: 'absolute',
+    bottom: 7,
+    left: 0, right: 0,
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 4,
+  },
+  dotOn:  { width: 14, height: 3, borderRadius: 1.5, backgroundColor: '#FFF' },
+  dotOff: { width: 4,  height: 3, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.3)' },
+
+  // Level accent bar between image and info
+  levelBar: {
+    height: 3,
+  },
+
+  // Pantone info section — white, left accent border
+  info: {
+    paddingHorizontal: 10,
+    paddingTop: 9,
+    paddingBottom: 11,
+    backgroundColor: '#FFFFFF',
+    borderLeftWidth: 3,
+  },
+  infoCompact: {
+    paddingHorizontal: 8,
+    paddingTop: 7,
+    paddingBottom: 9,
+  },
+  name: {
+    fontSize: 13,
+    fontWeight: '700',
+    color: '#1A1201',
+    letterSpacing: 0.15,
+    lineHeight: 17,
+  },
+  nameSm: {
+    fontSize: 11,
+    lineHeight: 15,
+    letterSpacing: 0.1,
+  },
+  // Timer shown as a Pantone "color code" — small, monospace-ish, gray
+  timerCode: {
+    fontSize: 9,
+    color: '#8C7B6B',
+    letterSpacing: 0.6,
+    marginTop: 4,
+    fontVariant: ['tabular-nums'],
+  },
+  timerCodeSm: {
+    fontSize: 8,
+    marginTop: 3,
+  },
+
+  // Empty state
+  empty: { alignItems: 'center', paddingTop: 80, gap: 12 },
+  emptyTitle: { fontSize: 17, fontWeight: '700', color: DARK.text },
+  emptySub: { color: DARK.textSub, textAlign: 'center' },
 });
