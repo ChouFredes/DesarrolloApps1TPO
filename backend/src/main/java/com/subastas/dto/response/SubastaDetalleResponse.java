@@ -5,6 +5,9 @@ import java.time.LocalDate;
 
 public record SubastaDetalleResponse(
         Long id,
+        String titulo,
+        String imagenPortadaUrl,
+        String fechaFin,
         LocalDate fecha,
         String hora,
         String estado,

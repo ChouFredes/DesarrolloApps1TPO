@@ -13,6 +13,7 @@ import com.subastas.entity.enums.CategoriaCliente;
 import com.subastas.entity.enums.EstadoMedioPago;
 import com.subastas.entity.enums.EstadoPersona;
 import com.subastas.entity.enums.TipoMedioPago;
+import com.subastas.entity.enums.TipoNotificacion;
 import com.subastas.exception.BusinessException;
 import com.subastas.exception.ConflictException;
 import com.subastas.exception.ForbiddenException;
@@ -43,6 +44,7 @@ public class PujaService {
     private final MedioPagoRepository medioPagoRepository;
     private final ClienteRepository clienteRepository;
     private final SimpMessagingTemplate simpMessagingTemplate;
+    private final NotificacionService notificacionService;
 
     @Transactional
     public PujaResponse realizarPujaRest(Long itemId, Long clienteId, PujaRequest request) {
@@ -54,6 +56,7 @@ public class PujaService {
                 result.saved().getImporte(), result.saved().getTimestamp()
         );
         simpMessagingTemplate.convertAndSend("/topic/auctions/" + result.subastaId() + "/bids", broadcast);
+        notificarSuperado(result.anteriorClienteId(), clienteId, result.saved().getImporte());
 
         return new PujaResponse(
                 result.saved().getId(), result.asistente().getId(), itemId,
@@ -65,10 +68,27 @@ public class PujaService {
     public PujaBroadcastMessage realizarPuja(Long subastaId, Long clienteId, PujaWebSocketRequest request) {
         PujaSavedResult result = ejecutarPuja(request.itemId(), clienteId, request.importe(), request.medioPagoId());
 
-        return new PujaBroadcastMessage(
+        PujaBroadcastMessage broadcast = new PujaBroadcastMessage(
                 subastaId, request.itemId(), result.saved().getId(),
                 result.asistente().getNumeroPostor(), result.saved().getImporte(),
                 result.saved().getImporte(), result.saved().getTimestamp()
+        );
+        notificarSuperado(result.anteriorClienteId(), clienteId, result.saved().getImporte());
+        return broadcast;
+    }
+
+    private void notificarSuperado(Long anteriorClienteId, Long nuevoClienteId, java.math.BigDecimal nuevoImporte) {
+        if (anteriorClienteId == null || anteriorClienteId.equals(nuevoClienteId)) return;
+        notificacionService.crearNotificacion(
+                anteriorClienteId,
+                TipoNotificacion.SUPERADO,
+                "Fuiste superado en la puja",
+                String.format("Tu oferta fue superada. Nueva oferta: $ %.2f", nuevoImporte)
+        );
+        simpMessagingTemplate.convertAndSendToUser(
+                anteriorClienteId.toString(),
+                "/queue/outbid",
+                java.util.Map.of("mensaje", "Fuiste superado", "nuevoImporte", nuevoImporte)
         );
     }
 
@@ -143,6 +163,12 @@ public class PujaService {
             }
         }
 
+        Long anteriorClienteId = pujoRepository.findByItemIdOrderByTimestampDesc(itemId).stream()
+                .filter(p -> "si".equals(p.getGanador()))
+                .findFirst()
+                .map(p -> p.getAsistente().getCliente().getId())
+                .orElse(null);
+
         pujoRepository.findByItemIdOrderByTimestampDesc(itemId).stream()
                 .filter(p -> "si".equals(p.getGanador()))
                 .forEach(p -> {
@@ -160,8 +186,8 @@ public class PujaService {
 
         log.info("Puja registrada: cliente={}, item={}, importe={}", clienteId, itemId, saved.getImporte());
 
-        return new PujaSavedResult(subastaId, asistente, saved);
+        return new PujaSavedResult(subastaId, asistente, saved, anteriorClienteId);
     }
 
-    private record PujaSavedResult(Long subastaId, Asistente asistente, Pujo saved) {}
+    private record PujaSavedResult(Long subastaId, Asistente asistente, Pujo saved, Long anteriorClienteId) {}
 }

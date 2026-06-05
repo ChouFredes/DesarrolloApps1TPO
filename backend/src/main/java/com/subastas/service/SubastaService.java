@@ -132,6 +132,9 @@ public class SubastaService {
 
         return new SubastaDetalleResponse(
                 subasta.getId(),
+                tituloFor(subasta.getCategoria()),
+                imagenFor(subasta.getCategoria()),
+                fechaFinIso(subasta),
                 subasta.getFecha(),
                 subasta.getHora() != null ? subasta.getHora().toString() : null,
                 subasta.getEstado() != null ? subasta.getEstado().name() : null,

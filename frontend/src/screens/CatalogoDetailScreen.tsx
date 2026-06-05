@@ -1,15 +1,36 @@
 import React, { useEffect, useState, useRef } from 'react';
 import {
   View, Text, StyleSheet, FlatList, TouchableOpacity,
-  Image, Animated, Dimensions,
+  Image, Animated, Dimensions, ActivityIndicator,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { spacing, borderRadius } from '../theme';
-import { MOCK_SUBASTAS, MOCK_ITEMS_POR_CATALOGO, MockItem } from '../mocks/data';
+import { useAuthStore } from '../stores/authStore';
+import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
+
+interface SubastaDetalle {
+  id: number;
+  titulo: string;
+  imagenPortadaUrl: string | null;
+  fechaFin: string;
+  categoria: string;
+  ubicacion: string;
+  subastador: string | null;
+}
+
+interface CatalogoItem {
+  id: number;
+  productoId: number;
+  descripcionCatalogo: string;
+  precioBase: number;
+  comision: number;
+  subastado: string;
+  fotosUrls: string[];
+}
 
 const D = {
   bg:      '#F4EEE8',
@@ -52,7 +73,7 @@ function useCountdown(fechaFin: string) {
   return timeLeft;
 }
 
-function ItemRow({ item, index, onPress }: { item: MockItem; index: number; onPress: () => void }) {
+function ItemRow({ item, index, onPress }: { item: CatalogoItem; index: number; onPress: () => void }) {
   const anim = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
@@ -65,26 +86,27 @@ function ItemRow({ item, index, onPress }: { item: MockItem; index: number; onPr
   }, [anim, index]);
 
   const translateX = anim.interpolate({ inputRange: [0, 1], outputRange: [30, 0] });
-  const ofertaActiva = item.mayorOfertaActual > item.precioBase;
+  const imgUrl = item.fotosUrls[0]
+    ? (item.fotosUrls[0].startsWith('/') ? `${API_BASE_URL}${item.fotosUrls[0]}` : item.fotosUrls[0])
+    : null;
 
   return (
     <Animated.View style={{ opacity: anim, transform: [{ translateX }] }}>
       <TouchableOpacity style={styles.itemRow} onPress={onPress} activeOpacity={0.87}>
-        <Image source={{ uri: item.imagenUrl }} style={styles.itemImage} resizeMode="cover" />
+        {imgUrl ? (
+          <Image source={{ uri: imgUrl }} style={styles.itemImage} resizeMode="cover" />
+        ) : (
+          <View style={[styles.itemImage, { backgroundColor: D.surface, justifyContent: 'center', alignItems: 'center' }]}>
+            <Ionicons name="image-outline" size={24} color={D.textSub} />
+          </View>
+        )}
         <View style={styles.itemInfo}>
-          <Text style={styles.itemNombre} numberOfLines={2}>{item.nombre}</Text>
-          <Text style={styles.itemDesc} numberOfLines={2}>{item.descripcion}</Text>
+          <Text style={styles.itemNombre} numberOfLines={2}>{item.descripcionCatalogo}</Text>
           <View style={styles.itemPriceRow}>
             <View>
               <Text style={styles.priceLabel}>Precio base</Text>
-              <Text style={styles.priceBase}>$ {item.precioBase.toLocaleString('es-AR')}</Text>
+              <Text style={styles.priceBase}>$ {Number(item.precioBase).toLocaleString('es-AR')}</Text>
             </View>
-            {ofertaActiva && (
-              <View style={styles.ofertaWrap}>
-                <Text style={styles.priceLabel}>Oferta actual</Text>
-                <Text style={styles.ofertaPrice}>$ {item.mayorOfertaActual.toLocaleString('es-AR')}</Text>
-              </View>
-            )}
           </View>
         </View>
         <Ionicons name="chevron-forward" size={18} color={D.textSub} style={styles.chevron} />
@@ -97,18 +119,51 @@ export function CatalogoDetailScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
   const { subastaId } = route.params;
+  const { token } = useAuthStore();
 
-  const catalogo = MOCK_SUBASTAS.find(s => s.id === subastaId) ?? MOCK_SUBASTAS[0];
-  const items = MOCK_ITEMS_POR_CATALOGO[catalogo.id] ?? [];
-  const timeLeft = useCountdown(catalogo.fechaFin);
-  const levelColor = LEVEL_COLORS[catalogo.categoria] ?? D.accent;
+  const [subasta, setSubasta] = useState<SubastaDetalle | null>(null);
+  const [items, setItems] = useState<CatalogoItem[]>([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [detRes, catRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/subastas/${subastaId}`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE_URL}/subastas/${subastaId}/catalogo`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        if (detRes.ok) setSubasta(await detRes.json());
+        if (catRes.ok) setItems(await catRes.json());
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [subastaId, token]);
+
+  const timeLeft = useCountdown(subasta?.fechaFin ?? '');
+  const levelColor = LEVEL_COLORS[subasta?.categoria ?? ''] ?? D.accent;
 
   const headerAnim = useRef(new Animated.Value(0)).current;
   useEffect(() => {
-    Animated.timing(headerAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
-  }, [headerAnim]);
+    if (!loading) {
+      Animated.timing(headerAnim, { toValue: 1, duration: 400, useNativeDriver: true }).start();
+    }
+  }, [loading, headerAnim]);
 
-  const subastador = `${catalogo.subastadorNombre} ${catalogo.subastadorApellido ?? ''}`.trim();
+  const subastador = subasta?.subastador ?? 'Subastador';
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={D.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
+
+  const heroUrl = subasta?.imagenPortadaUrl ?? null;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -122,14 +177,17 @@ export function CatalogoDetailScreen() {
           <Animated.View style={{ opacity: headerAnim }}>
             {/* Hero image */}
             <View style={styles.heroWrap}>
-              <Image source={{ uri: catalogo.imagenUrl }} style={styles.heroImage} resizeMode="cover" />
+              {heroUrl ? (
+                <Image source={{ uri: heroUrl }} style={styles.heroImage} resizeMode="cover" />
+              ) : (
+                <View style={[styles.heroImage, { backgroundColor: D.surface }]} />
+              )}
               <View style={styles.heroOverlay} />
               <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.8}>
                 <Ionicons name="arrow-back" size={22} color="#fff" />
               </TouchableOpacity>
-              {/* Level-colored category badge */}
               <View style={[styles.catBadge, { backgroundColor: levelColor }]}>
-                <Text style={styles.catBadgeText}>{catalogo.categoria.toUpperCase()}</Text>
+                <Text style={styles.catBadgeText}>{(subasta?.categoria ?? '').toUpperCase()}</Text>
               </View>
               <View style={styles.timerBadge}>
                 <Ionicons name="time-outline" size={13} color="#fff" />
@@ -140,14 +198,16 @@ export function CatalogoDetailScreen() {
             {/* Level accent bar */}
             <View style={[styles.levelBar, { backgroundColor: levelColor }]} />
 
-            {/* Catálogo info — dark card */}
+            {/* Catálogo info */}
             <View style={styles.infoCard}>
-              <Text style={styles.catalogoNombre}>{catalogo.nombre}</Text>
+              <Text style={styles.catalogoNombre}>{subasta?.titulo ?? 'Subasta'}</Text>
               <View style={styles.subastadorRow}>
                 <View style={[styles.subastadorDot, { backgroundColor: levelColor }]} />
                 <Text style={styles.subastadorText}>{subastador}</Text>
               </View>
-              <Text style={styles.catalogoDesc}>{catalogo.descripcion}</Text>
+              {subasta?.ubicacion ? (
+                <Text style={styles.catalogoDesc}>{subasta.ubicacion}</Text>
+              ) : null}
             </View>
 
             {/* Section title */}
@@ -163,7 +223,7 @@ export function CatalogoDetailScreen() {
           <ItemRow
             item={item}
             index={index}
-            onPress={() => navigation.navigate('ItemDetail', { itemId: item.id, subastaId: catalogo.id })}
+            onPress={() => navigation.navigate('ItemDetail', { itemId: item.id, subastaId })}
           />
         )}
         ListEmptyComponent={

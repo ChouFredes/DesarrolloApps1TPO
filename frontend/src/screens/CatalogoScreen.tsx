@@ -15,7 +15,8 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { MOCK_SUBASTAS, MOCK_ITEMS_POR_CATALOGO } from '../mocks/data';
+import { useAuthStore } from '../stores/authStore';
+import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
 
 const DARK = {
@@ -29,24 +30,29 @@ const DARK = {
 
 // Pantone-inspired level colors — the "chip" accent for each tier
 const LEVEL_COLORS: Record<string, string> = {
-  comun: '#888888',
-  especial: '#3A7BD5',
-  plata: '#B0B8C1',
-  oro: '#E8A020',
-  platino: '#9B59B6',
+  pokemon:           '#E74C3C',
+  maquinas_tecnicas: '#3A7BD5',
+  pociones:          '#9B59B6',
 };
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'Catalogo'>;
 type RouteProps = RouteProp<HomeStackParamList, 'Catalogo'>;
-type Subasta = typeof MOCK_SUBASTAS[0];
+
+interface Subasta {
+  id: number;
+  titulo: string;
+  categoria: string;
+  ubicacion: string;
+  fechaFin: string;
+  cantidadItems: number;
+  imagenPortadaUrl: string | null;
+}
 
 const CATEGORIAS = [
-  { key: 'todos', label: 'Todos' },
-  { key: 'comun', label: 'Común' },
-  { key: 'especial', label: 'Especial' },
-  { key: 'plata', label: 'Plata' },
-  { key: 'oro', label: 'Oro' },
-  { key: 'platino', label: 'Platino' },
+  { key: 'todos',            label: 'Todos' },
+  { key: 'pokemon',          label: 'Pokémon' },
+  { key: 'maquinas_tecnicas',label: 'Máquinas' },
+  { key: 'pociones',         label: 'Pociones' },
 ];
 
 const { width: SW } = Dimensions.get('window');
@@ -102,7 +108,7 @@ function balanceColumns(items: Subasta[]) {
   const L: Subasta[] = [], R: Subasta[] = [];
   let lH = 0, rH = 0;
   for (const item of items) {
-    const ar = AR_CACHE[item.imagenUrl] ?? seedAR(item.id);
+    const ar = AR_CACHE[item.imagenPortadaUrl ?? ''] ?? seedAR(item.id);
     const lCard = clampH(WL / ar) + 72;
     const rCard = clampH(WR / ar) + 64;
     if (lH <= rH) { L.push(item); lH += lCard + GAP; }
@@ -122,12 +128,12 @@ interface CardProps {
 }
 
 function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: CardProps) {
-  const ar = useAspectRatio(item.imagenUrl, seedAR(item.id));
+  const imgSrc = item.imagenPortadaUrl ?? '';
+  const ar = useAspectRatio(imgSrc, seedAR(item.id));
   const imgH = clampH(colWidth / ar);
   const { full, short } = useCountdownBoth(item.fechaFin);
 
-  const imgs = (MOCK_ITEMS_POR_CATALOGO[item.id] ?? [])
-    .slice(0, 4).map(i => i.imagenUrl).filter(Boolean);
+  const imgs = item.imagenPortadaUrl ? [item.imagenPortadaUrl] : [];
 
   const levelColor = LEVEL_COLORS[item.categoria] ?? '#888888';
 
@@ -291,7 +297,7 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
         {/* ── Pantone info chip ── */}
         <View style={[s.info, compact && s.infoCompact, { borderLeftColor: levelColor }]}>
           <Text style={[s.name, compact && s.nameSm]} numberOfLines={compact ? 1 : 2}>
-            {item.nombre}
+            {item.titulo}
           </Text>
           <Text style={[s.timerCode, compact && s.timerCodeSm]}>
             {compact ? short : full}
@@ -307,18 +313,31 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
 export function CatalogoScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
+  const { token } = useAuthStore();
   const initialCat = route.params?.categoriaInicial?.toLowerCase() ?? 'todos';
   const [selectedCat, setSelectedCat] = useState(initialCat);
   const [subastas, setSubastas] = useState<Subasta[]>([]);
   const [refreshing, setRefreshing] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
 
-  const loadMocks = useCallback(() => setSubastas(MOCK_SUBASTAS), []);
-  useEffect(() => { loadMocks(); }, [loadMocks]);
+  const fetchSubastas = useCallback(async () => {
+    try {
+      const res = await fetch(`${API_BASE_URL}/subastas/abiertas`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (!res.ok) throw new Error(`${res.status}`);
+      const data: Subasta[] = await res.json();
+      setSubastas(data);
+    } catch {
+      // keep existing data on refresh failure
+    }
+  }, [token]);
+
+  useEffect(() => { fetchSubastas(); }, [fetchSubastas]);
 
   const onRefresh = () => {
     setRefreshing(true);
-    setTimeout(() => { loadMocks(); setRefreshing(false); }, 800);
+    fetchSubastas().finally(() => setRefreshing(false));
   };
 
   const filtered = selectedCat === 'todos'

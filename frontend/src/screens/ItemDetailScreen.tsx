@@ -12,14 +12,36 @@ import {
   FlatList,
   NativeSyntheticEvent,
   NativeScrollEvent,
+  Alert,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, borderRadius, shadows } from '../theme';
-import { MOCK_ITEMS, MOCK_SUBASTAS } from '../mocks/data';
+import { useAuthStore } from '../stores/authStore';
+import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
+
+interface ItemDetalle {
+  id: number;
+  productoId: number;
+  descripcionCatalogo: string;
+  descripcionCompleta: string | null;
+  precioBase: number;
+  comision: number;
+  subastado: string;
+  fotosUrls: string[];
+}
+
+interface SubastaDetalle {
+  id: number;
+  titulo: string;
+  imagenPortadaUrl: string | null;
+  fechaFin: string | null;
+  subastador: string | null;
+  mayorOfertaActual: number | null;
+}
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'ItemDetail'>;
 type RouteProps = RouteProp<HomeStackParamList, 'ItemDetail'>;
@@ -60,21 +82,37 @@ export function ItemDetailScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
   const { itemId, subastaId } = route.params;
+  const { token } = useAuthStore();
 
-  // Resolve mock data — fallback to first available item if itemId not found
-  const firstItemId = parseInt(Object.keys(MOCK_ITEMS)[0], 10);
-  const mockItem = MOCK_ITEMS[itemId] ?? MOCK_ITEMS[firstItemId];
-  const mockSubasta =
-    MOCK_SUBASTAS.find((s) => s.id === subastaId) ?? MOCK_SUBASTAS[0];
-
-  const fotos: string[] = mockItem?.fotos ?? (mockItem?.imagenUrl ? [mockItem.imagenUrl] : []);
-
+  const [item, setItem] = useState<ItemDetalle | null>(null);
+  const [subasta, setSubasta] = useState<SubastaDetalle | null>(null);
+  const [loading, setLoading] = useState(true);
   const [favorited, setFavorited] = useState(false);
   const [expanded, setExpanded] = useState(false);
   const [joining, setJoining] = useState(false);
   const [activePhoto, setActivePhoto] = useState(0);
 
-  const countdown = useCountdown(mockSubasta.fechaFin);
+  useEffect(() => {
+    const load = async () => {
+      try {
+        const [itemRes, subRes] = await Promise.all([
+          fetch(`${API_BASE_URL}/items/${itemId}`, { headers: { Authorization: `Bearer ${token}` } }),
+          fetch(`${API_BASE_URL}/subastas/${subastaId}`, { headers: { Authorization: `Bearer ${token}` } }),
+        ]);
+        if (itemRes.ok) setItem(await itemRes.json());
+        if (subRes.ok) setSubasta(await subRes.json());
+      } finally {
+        setLoading(false);
+      }
+    };
+    load();
+  }, [itemId, subastaId, token]);
+
+  const fotos: string[] = (item?.fotosUrls ?? []).map(url =>
+    url.startsWith('/') ? `${API_BASE_URL}${url}` : url
+  );
+
+  const countdown = useCountdown(subasta?.fechaFin ?? null);
 
   // Animations
   const imageFade = useRef(new Animated.Value(0)).current;
@@ -82,56 +120,49 @@ export function ItemDetailScreen() {
   const contentOpacity = useRef(new Animated.Value(0)).current;
 
   useEffect(() => {
-    Animated.parallel([
-      Animated.timing(imageFade, {
-        toValue: 1,
-        duration: 500,
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentSlide, {
-        toValue: 0,
-        duration: 480,
-        delay: 180,
-        useNativeDriver: true,
-      }),
-      Animated.timing(contentOpacity, {
-        toValue: 1,
-        duration: 480,
-        delay: 180,
-        useNativeDriver: true,
-      }),
-    ]).start();
-  }, [imageFade, contentSlide, contentOpacity]);
+    if (!loading) {
+      Animated.parallel([
+        Animated.timing(imageFade, { toValue: 1, duration: 500, useNativeDriver: true }),
+        Animated.timing(contentSlide, { toValue: 0, duration: 480, delay: 180, useNativeDriver: true }),
+        Animated.timing(contentOpacity, { toValue: 1, duration: 480, delay: 180, useNativeDriver: true }),
+      ]).start();
+    }
+  }, [loading, imageFade, contentSlide, contentOpacity]);
 
   const handleMakeOffer = () => {
     setJoining(true);
-    // DEV_MODE: navigate directly without backend call
     setTimeout(() => {
       setJoining(false);
       navigation.navigate('AuctionRoom', {
         subastaId,
         itemId,
-        itemName: mockSubasta?.nombre ?? mockItem?.nombre ?? '',
+        itemName: item?.descripcionCatalogo ?? subasta?.titulo ?? '',
       });
     }, 400);
   };
 
-  const description =
-    mockItem?.descripcion || mockSubasta?.descripcion || 'Sin descripción disponible.';
+  const description = item?.descripcionCompleta ?? item?.descripcionCatalogo ?? 'Sin descripción disponible.';
   const truncated = !expanded && description.length > 140;
   const displayDesc = truncated ? description.slice(0, 140) + '…' : description;
 
-  const currentPrice = mockSubasta?.mayorOfertaActual ?? mockSubasta?.precioBase ?? 0;
-  const basePrice = mockSubasta?.precioBase ?? 0;
-  const creatorName =
-    mockSubasta?.subastadorNombre
-      ? `${mockSubasta.subastadorNombre} ${mockSubasta.subastadorApellido ?? ''}`.trim()
-      : 'Subastador';
+  const currentPrice = subasta?.mayorOfertaActual ?? item?.precioBase ?? 0;
+  const basePrice = item?.precioBase ?? 0;
+  const creatorName = subasta?.subastador ?? 'Subastador';
 
   const onScrollEnd = (e: NativeSyntheticEvent<NativeScrollEvent>) => {
     const idx = Math.round(e.nativeEvent.contentOffset.x / width);
     setActivePhoto(idx);
   };
+
+  if (loading) {
+    return (
+      <SafeAreaView style={styles.safe} edges={['top']}>
+        <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
+          <ActivityIndicator size="large" color={colors.accent} />
+        </View>
+      </SafeAreaView>
+    );
+  }
 
   return (
     <SafeAreaView style={styles.safe} edges={['top']}>
@@ -237,7 +268,7 @@ export function ItemDetailScreen() {
           {/* Title row */}
           <View style={styles.titleRow}>
             <Text style={styles.itemName} numberOfLines={2}>
-              {mockItem?.nombre ?? mockSubasta?.nombre}
+              {item?.descripcionCatalogo ?? subasta?.titulo ?? ''}
             </Text>
           </View>
 

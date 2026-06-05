@@ -22,10 +22,8 @@ import { colors, spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
-import { MOCK_CONEXION, MOCK_HISTORIAL_PUJAS } from '../mocks/data';
-
 // ─── Dev flag ───────────────────────────────────────────────────────────────
-const DEV_MODE = true;
+const DEV_MODE = false;
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type NavProp = StackNavigationProp<HomeStackParamList, 'AuctionRoom'>;
@@ -150,10 +148,7 @@ export function AuctionRoomScreen() {
 
       let conexionData: ConectarResponse;
 
-      if (DEV_MODE) {
-        // Corrección 1.2: en DEV_MODE usar mock directamente
-        conexionData = MOCK_CONEXION as ConectarResponse;
-      } else {
+      {
         const [conectarRes, subastaRes] = await Promise.all([
           axios.post<ConectarResponse>(
             `${API_BASE_URL}/subastas/${subastaId}/conectar`,
@@ -182,17 +177,12 @@ export function AuctionRoomScreen() {
       if (min !== undefined) setPujaMinima(min);
       if (max !== undefined) setPujaMaxima(max);          // null = sin límite
       if (historialPujas && historialPujas.length > 0) {
-        // Cargar historial mock como estado inicial (más reciente primero)
         const sorted = [...historialPujas].sort(
           (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
         );
         setBids(sorted);
       }
 
-      // En DEV_MODE seteamos una fechaFin de ejemplo para el timer
-      if (DEV_MODE) {
-        setFechaFin(new Date(Date.now() + 9 * 3_600_000 + 12 * 60_000).toISOString());
-      }
     } catch (e: any) {
       const msg = e?.response?.data?.message ?? 'No se pudo conectar a la subasta.';
       setInitError(msg);
@@ -206,7 +196,7 @@ export function AuctionRoomScreen() {
     setStatus('connecting');
 
     const client = new Client({
-      brokerURL: 'ws://10.0.2.2:8080/ws',
+      brokerURL: `${API_BASE_URL.replace(/^http/, 'ws')}/ws`,
       connectHeaders: { Authorization: `Bearer ${token}` },
       reconnectDelay: 5000,
       onConnect: () => {
@@ -274,15 +264,13 @@ export function AuctionRoomScreen() {
     connectWs();
 
     return () => {
-      if (!DEV_MODE) {
-        axios
-          .post(
-            `${API_BASE_URL}/subastas/${subastaId}/desconectar`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } },
-          )
-          .catch(() => {});
-      }
+      axios
+        .post(
+          `${API_BASE_URL}/subastas/${subastaId}/desconectar`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } },
+        )
+        .catch(() => {});
       stompClient.current?.deactivate();
     };
   }, [initialize, connectWs, subastaId, token]);
@@ -309,7 +297,7 @@ export function AuctionRoomScreen() {
       return;
     }
 
-    if (!DEV_MODE && !stompClient.current?.connected) {
+    if (!stompClient.current?.connected) {
       Alert.alert('Sin conexión', 'No estás conectado al servidor de subastas.');
       return;
     }
@@ -317,41 +305,17 @@ export function AuctionRoomScreen() {
     // Estado 1: PROCESANDO
     triggerOfferStatus('procesando', '');
 
-    if (DEV_MODE) {
-      // Simulación: 70% aceptada / 30% rechazada
-      const delay = 800 + Math.random() * 700;
-      setTimeout(() => {
-        const accepted = Math.random() < 0.7;
-        if (accepted) {
-          lastMyBid.current = amount;
-          setBidAmount('');
-          setCurrentPrice((prev) => Math.max(prev, amount));
-          const newBid: Bid = {
-            id: `${Date.now()}-my`,
-            numeroPostor: numeroPostor ?? '?',
-            importe: amount,
-            timestamp: new Date().toISOString(),
-          };
-          setBids((prev) => [newBid, ...prev]);
-          // Estado 2: ACEPTADA (2 seg)
-          triggerOfferStatus('aceptada', '¡Oferta aceptada!', 2000);
-        } else {
-          // Estado 3: RECHAZADA (3 seg)
-          triggerOfferStatus('rechazada', 'Monto fuera de rango permitido', 3000);
-        }
-      }, delay);
-    } else {
-      try {
-        stompClient.current!.publish({
-          destination: `/app/auctions/${subastaId}/bid`,
-          body: JSON.stringify({ itemId, importe: amount }),
-        });
-        lastMyBid.current = amount;
-        setBidAmount('');
-        triggerOfferStatus('aceptada', '¡Oferta enviada!', 2000);
-      } catch {
-        triggerOfferStatus('rechazada', 'No se pudo enviar la oferta.', 3000);
-      }
+    try {
+      stompClient.current!.publish({
+        destination: `/app/auctions/${subastaId}/bid`,
+        headers: { Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ itemId, importe: amount }),
+      });
+      lastMyBid.current = amount;
+      setBidAmount('');
+      triggerOfferStatus('aceptada', '¡Oferta enviada!', 2000);
+    } catch {
+      triggerOfferStatus('rechazada', 'No se pudo enviar la oferta.', 3000);
     }
   };
 

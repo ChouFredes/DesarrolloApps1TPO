@@ -11,9 +11,8 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { colors, spacing, borderRadius, shadows } from '../theme';
-import { MOCK_NOTIFICACIONES } from '../mocks/data';
-
-const DEV_MODE = true;
+import { useAuthStore } from '../stores/authStore';
+import { API_BASE_URL } from '../config/api';
 
 type NotificationType =
   | 'RESULTADO_COMPRA'
@@ -98,25 +97,31 @@ function NotifIcon({ tipo }: { tipo: NotificationType }) {
 }
 
 export function NotificationsScreen() {
+  const { token, user } = useAuthStore();
   const [notificaciones, setNotificaciones] = useState<Notificacion[]>([]);
   const [loading, setLoading] = useState(true);
   const [refreshing, setRefreshing] = useState(false);
   const [filter, setFilter] = useState<Filter>('todas');
   const [error, setError] = useState<string | null>(null);
 
-  const cargarNotificaciones = useCallback((currentFilter: Filter) => {
-    if (DEV_MODE) {
-      const data = MOCK_NOTIFICACIONES as Notificacion[];
-      const filtered = currentFilter === 'no_leidas' ? data.filter(n => !n.leida) : data;
-      setNotificaciones(filtered);
+  const cargarNotificaciones = useCallback(async (currentFilter: Filter) => {
+    if (!user?.id) { setLoading(false); setRefreshing(false); return; }
+    try {
+      const leida = currentFilter === 'no_leidas' ? '?leida=false' : '';
+      const res = await fetch(`${API_BASE_URL}/usuarios/${user.id}/notificaciones${leida}`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data: Notificacion[] = await res.json();
+        setNotificaciones(data);
+      }
+    } catch {
+      // keep existing data
+    } finally {
       setLoading(false);
       setRefreshing(false);
-      return;
     }
-    // Real fetch placeholder — reemplazar cuando el backend esté activo
-    setLoading(false);
-    setRefreshing(false);
-  }, []);
+  }, [token, user?.id]);
 
   useEffect(() => {
     setLoading(true);
@@ -128,11 +133,18 @@ export function NotificationsScreen() {
     cargarNotificaciones(filter);
   };
 
-  const markAsRead = (notifId: number) => {
-    // En DEV_MODE: sólo cambia estado local
-    setNotificaciones(prev =>
-      prev.map(n => n.id === notifId ? { ...n, leida: true } : n)
-    );
+  const markAsRead = async (notifId: number) => {
+    setNotificaciones(prev => prev.map(n => n.id === notifId ? { ...n, leida: true } : n));
+    if (user?.id) {
+      try {
+        await fetch(`${API_BASE_URL}/usuarios/${user.id}/notificaciones/${notifId}/leer`, {
+          method: 'PATCH',
+          headers: { Authorization: `Bearer ${token}` },
+        });
+      } catch {
+        // ignore — local state already updated
+      }
+    }
   };
 
   const renderItem = ({ item }: { item: Notificacion }) => (

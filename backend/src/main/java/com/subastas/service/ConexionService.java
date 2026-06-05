@@ -102,12 +102,12 @@ public class ConexionService {
             );
             mayorOfertaActual = pujoRepository.findMayorImporteByItemId(item.getId()).orElse(null);
 
-            if (mayorOfertaActual != null && item.getPrecioBase() != null) {
-                BigDecimal base = item.getPrecioBase();
-                pujaMinima = mayorOfertaActual.add(base.multiply(BigDecimal.valueOf(0.01)));
+            BigDecimal referencia = mayorOfertaActual != null ? mayorOfertaActual : item.getPrecioBase();
+            if (referencia != null) {
+                pujaMinima = referencia.multiply(BigDecimal.valueOf(1.01));
                 CategoriaCliente cat = cliente.getCategoria();
                 if (cat != CategoriaCliente.oro && cat != CategoriaCliente.platino) {
-                    pujaMaxima = mayorOfertaActual.add(base.multiply(BigDecimal.valueOf(0.20)));
+                    pujaMaxima = referencia.multiply(BigDecimal.valueOf(1.20));
                 }
             }
 

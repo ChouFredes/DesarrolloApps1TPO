@@ -7,5 +7,6 @@ public enum TipoNotificacion {
     ARTICULO_RECHAZADO,
     CUENTA_ACTIVADA,
     PAGO_REQUERIDO,
-    BIEN_DEVUELTO
+    BIEN_DEVUELTO,
+    SUPERADO
 }
