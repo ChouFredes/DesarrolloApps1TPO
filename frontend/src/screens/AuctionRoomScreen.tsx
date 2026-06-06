@@ -84,6 +84,7 @@ interface ConectarResponse {
   pujaMaxima?: number | null;
   historialPujas?: Bid[];
   medioPagoSeleccionado?: { id: number };
+  itemActual?: { id: number; precioBase: number };
 }
 
 type OfferStatus = 'idle' | 'procesando' | 'aceptada' | 'rechazada' | 'superada' | 'invalido';
@@ -119,6 +120,8 @@ export function AuctionRoomScreen() {
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidAmount, setBidAmount] = useState('');
   const [currentPrice, setCurrentPrice] = useState<number>(0);
+  const [basePrice, setBasePrice] = useState<number>(0);
+  const [currentItemId, setCurrentItemId] = useState<number>(itemId);
   const [fechaFin, setFechaFin] = useState<string | null>(null);
   const [numeroPostor, setNumeroPostor] = useState<number | null>(null);
   const [status, setStatus] = useState<ConnectionStatus>('connecting');
@@ -136,8 +139,23 @@ export function AuctionRoomScreen() {
 
   const stompClient = useRef<Client | null>(null);
   const listRef = useRef<FlatList>(null);
+  const currentItemIdRef = useRef<number>(itemId);
+  const basePriceRef = useRef<number>(basePrice);
+  const pujaMaximaRef = useRef<number | null | undefined>(pujaMaxima);
   const timeLeft = useCountdown(fechaFin);
   const priceScale = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    currentItemIdRef.current = currentItemId;
+  }, [currentItemId]);
+
+  useEffect(() => {
+    basePriceRef.current = basePrice;
+  }, [basePrice]);
+
+  useEffect(() => {
+    pujaMaximaRef.current = pujaMaxima;
+  }, [pujaMaxima]);
 
   useEffect(() => {
     if (currentPrice === 0) return;
@@ -183,45 +201,67 @@ export function AuctionRoomScreen() {
 
       const [conectarRes, subastaRes] = await Promise.all([
         axios.post<ConectarResponse>(
-          `${API_BASE_URL}/subastas/${subastaId}/conectar`,
+          `${API_BASE_URL}/subastas/${subastaId}/conectar?itemId=${itemId}`,
           {},
           { headers: { Authorization: `Bearer ${token}` } },
         ),
-        axios.get<{ mayorOfertaActual?: number; fechaFin: string; itemActual?: { precioBase: number } }>(
+        axios.get<{ fechaFin: string }>(
           `${API_BASE_URL}/subastas/${subastaId}`,
           { headers: { Authorization: `Bearer ${token}` } },
         ),
       ]);
 
-      const conexionData = {
-        ...conectarRes.data,
-        mayorOfertaActual:
-          conectarRes.data.mayorOfertaActual ??
-          subastaRes.data.mayorOfertaActual ??
-          subastaRes.data.itemActual?.precioBase ??
-          0,
-      };
-      setFechaFin(subastaRes.data.fechaFin);
+      const conexionData = conectarRes.data;
+      const itemActual = conexionData.itemActual;
 
-      setCurrentPrice(conexionData.mayorOfertaActual);
+      setFechaFin(subastaRes.data.fechaFin);
+      const calculatedBasePrice = itemActual?.precioBase ?? 0;
+      setBasePrice(calculatedBasePrice);
+
+      if (itemActual?.id) {
+        setCurrentItemId(itemActual.id);
+      }
+
+      const initialPrice = conexionData.mayorOfertaActual ?? calculatedBasePrice;
+      setCurrentPrice(initialPrice);
       setNumeroPostor(conexionData.numeroPostor);
-      if (conexionData.pujaMinima !== undefined) setPujaMinima(conexionData.pujaMinima);
-      if (conexionData.pujaMaxima !== undefined) setPujaMaxima(conexionData.pujaMaxima);
-      if (conexionData.medioPagoSeleccionado?.id) setMedioPagoId(conexionData.medioPagoSeleccionado.id);
+
+      if (conexionData.pujaMinima !== undefined && conexionData.pujaMinima !== null) {
+        setPujaMinima(conexionData.pujaMinima);
+      } else {
+        setPujaMinima(initialPrice + calculatedBasePrice * 0.01);
+      }
+
+      if (conexionData.pujaMaxima !== undefined) {
+        setPujaMaxima(conexionData.pujaMaxima);
+      } else {
+        setPujaMaxima(initialPrice + calculatedBasePrice * 0.20);
+      }
+
+      if (conexionData.medioPagoSeleccionado?.id) {
+        setMedioPagoId(conexionData.medioPagoSeleccionado.id);
+      }
 
       if (conexionData.historialPujas && conexionData.historialPujas.length > 0) {
         const sorted = [...conexionData.historialPujas].sort(
           (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
         );
         setBids(sorted);
+      } else {
+        setBids([]);
       }
     } catch (e: any) {
       console.error("Error inicializando subasta:", e);
-      setInitError(e?.response?.data?.message ?? 'No se pudo conectar a la subasta.');
+      setInitError(
+        e?.response?.data?.detalle ||
+        e?.response?.data?.mensaje ||
+        e?.response?.data?.message ||
+        'No se pudo conectar a la subasta.'
+      );
     } finally {
       setInitLoading(false);
     }
-  }, [subastaId, token]);
+  }, [subastaId, itemId, token]);
 
   const connectWs = useCallback(() => {
     const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws-native`;
@@ -245,6 +285,7 @@ export function AuctionRoomScreen() {
         client.subscribe(`/topic/auctions/${subastaId}/bids`, (msg) => {
           try {
             const puja = JSON.parse(msg.body);
+            if (puja.itemId !== currentItemIdRef.current) return;
             const amount = puja.importe ?? puja.monto ?? 0;
             const newBid: Bid = {
               id: `${Date.now()}-${Math.random()}`,
@@ -253,7 +294,16 @@ export function AuctionRoomScreen() {
               timestamp: puja.timestamp ?? puja.fechaHora ?? new Date().toISOString(),
             };
             setBids((prev) => [newBid, ...prev]);
-            setCurrentPrice((prev) => Math.max(prev, amount));
+
+            setCurrentPrice((prev) => {
+              const nextPrice = Math.max(prev, amount);
+              const bp = basePriceRef.current;
+              setPujaMinima(nextPrice + bp * 0.01);
+              if (pujaMaximaRef.current !== null && pujaMaximaRef.current !== undefined) {
+                setPujaMaxima(nextPrice + bp * 0.20);
+              }
+              return nextPrice;
+            });
 
             if (numeroPostor !== null && puja.numeroPostor !== numeroPostor && amount > lastMyBid.current && lastMyBid.current > 0) {
               triggerOfferStatus('superada', '¡Tu oferta fue superada!', 4000);
@@ -293,12 +343,25 @@ export function AuctionRoomScreen() {
       stompClient.current?.deactivate();
       axios.post(`${API_BASE_URL}/subastas/${subastaId}/desconectar`, {}, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
     };
-  }, [subastaId]);
+  }, [subastaId, itemId]);
+
+  const handleQuickBidPercent = (percent: number) => {
+    const calculated = currentPrice + basePrice * percent;
+    setBidAmount(Number(calculated.toFixed(2)).toString());
+  };
 
   const handleBid = () => {
     const amount = parseFloat(bidAmount.replace(',', '.'));
     if (isNaN(amount) || amount <= 0) {
       triggerOfferStatus('invalido', 'Monto inválido.');
+      return;
+    }
+    if (pujaMinima !== null && amount < pujaMinima) {
+      triggerOfferStatus('invalido', `Mínimo: $${pujaMinima.toLocaleString('es-AR')}`);
+      return;
+    }
+    if (pujaMaxima !== null && pujaMaxima !== undefined && amount > pujaMaxima) {
+      triggerOfferStatus('invalido', `Máximo: $${pujaMaxima.toLocaleString('es-AR')}`);
       return;
     }
     if (amount <= currentPrice) {
@@ -315,7 +378,7 @@ export function AuctionRoomScreen() {
     try {
       stompClient.current!.publish({
         destination: `/app/auctions/${subastaId}/bid`,
-        body: JSON.stringify({ itemId, importe: amount, medioPagoId }),
+        body: JSON.stringify({ itemId: currentItemId, importe: amount, medioPagoId }),
       });
       lastMyBid.current = amount;
       setBidAmount('');
@@ -380,12 +443,29 @@ export function AuctionRoomScreen() {
         </View>
 
         <View style={styles.inputArea}>
+          {basePrice > 0 && status === 'connected' && (
+            <View style={styles.quickBidsRow}>
+              {[0.05, 0.10, 0.20].map((pct) => {
+                const addAmount = basePrice * pct;
+                return (
+                  <TouchableOpacity
+                    key={pct}
+                    style={styles.quickBidBtn}
+                    onPress={() => handleQuickBidPercent(pct)}
+                  >
+                    <Text style={styles.quickBidBtnText}>+{pct * 100}% (${addAmount.toLocaleString()})</Text>
+                  </TouchableOpacity>
+                );
+              })}
+            </View>
+          )}
+
           <View style={styles.inputBar}>
             <TextInput
               style={styles.bidInput}
               value={bidAmount}
               onChangeText={setBidAmount}
-              placeholder={`Mín. $${(currentPrice + 1).toLocaleString()}`}
+              placeholder={pujaMinima !== null ? `Mín. $${pujaMinima.toLocaleString('es-AR')}` : `Mín. $${(currentPrice + 1).toLocaleString('es-AR')}`}
               keyboardType="numeric"
               editable={status === 'connected'}
             />
@@ -438,6 +518,27 @@ const styles = StyleSheet.create({
   bidTime: { fontSize: 12, color: colors.textSecondary },
   bidSeparator: { height: 10 },
   inputArea: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
+  quickBidsRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-around',
+    paddingHorizontal: 15,
+    paddingTop: 12,
+    gap: 8,
+  },
+  quickBidBtn: {
+    flex: 1,
+    backgroundColor: colors.primary + '15',
+    borderWidth: 1,
+    borderColor: colors.primary + '30',
+    borderRadius: 20,
+    paddingVertical: 8,
+    alignItems: 'center',
+  },
+  quickBidBtnText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: colors.primary,
+  },
   inputBar: { flexDirection: 'row', padding: 15, gap: 10 },
   bidInput: { flex: 1, backgroundColor: colors.background, borderRadius: 25, paddingHorizontal: 20, height: 50, borderWidth: 1, borderColor: colors.border },
   pujarBtn: { backgroundColor: colors.primary, borderRadius: 25, paddingHorizontal: 25, justifyContent: 'center' },

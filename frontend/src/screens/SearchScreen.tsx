@@ -105,7 +105,11 @@ export function SearchScreen() {
         itemName: subasta.nombre,
       });
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? 'No se pudo conectar a la subasta.';
+      const msg =
+        e?.response?.data?.detalle ||
+        e?.response?.data?.mensaje ||
+        e?.response?.data?.message ||
+        'No se pudo conectar a la subasta.';
       Alert.alert('Error', msg);
     } finally {
       setJoiningId(null);

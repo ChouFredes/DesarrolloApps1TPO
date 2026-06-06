@@ -9,6 +9,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestHeader;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -22,9 +23,10 @@ public class ConexionController {
     @PostMapping("/{id}/conectar")
     public ResponseEntity<ConexionSubastaResponse> conectar(
             @PathVariable Long id,
+            @RequestParam(required = false) Long itemId,
             @RequestHeader("Authorization") String bearerToken) {
         Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
-        ConexionSubastaResponse response = conexionService.conectar(id, clienteId);
+        ConexionSubastaResponse response = conexionService.conectar(id, clienteId, itemId);
         return ResponseEntity.ok(response);
     }
 

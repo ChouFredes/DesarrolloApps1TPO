@@ -70,7 +70,11 @@ export function MultasScreen() {
       );
       setMultas(prev => prev.map(m => m.id === multaId ? res.data : m));
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? 'No se pudo procesar el pago.';
+      const msg =
+        e?.response?.data?.detalle ||
+        e?.response?.data?.mensaje ||
+        e?.response?.data?.message ||
+        'No se pudo procesar el pago.';
       Alert.alert('Error', msg);
     } finally {
       setPagando(null);

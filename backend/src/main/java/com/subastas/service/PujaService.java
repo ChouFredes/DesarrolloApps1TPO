@@ -130,22 +130,26 @@ public class PujaService {
             throw new ConflictException("Hay una puja anterior siendo procesada. Esperá unos segundos.");
         }
 
-        BigDecimal referencia = pujoRepository.findMayorImporteByItemId(itemId)
-                .orElse(item.getPrecioBase());
+        BigDecimal base = item.getPrecioBase();
+        BigDecimal unPorcientoBase = base.multiply(BigDecimal.valueOf(0.01));
+        BigDecimal veintePorcientoBase = base.multiply(BigDecimal.valueOf(0.20));
 
-        BigDecimal minimo = referencia.multiply(BigDecimal.valueOf(1.01));
+        BigDecimal mejorValor = pujoRepository.findMayorImporteByItemId(itemId)
+                .orElse(base);
+
+        BigDecimal minimo = mejorValor.add(unPorcientoBase);
         if (importe.compareTo(minimo) < 0) {
             throw new BusinessException(
-                    String.format("La puja mínima es %.2f (1%% sobre la oferta actual)", minimo)
+                    String.format("La puja mínima es %.2f (oferta actual + 1%% del valor base)", minimo)
             );
         }
 
         CategoriaCliente cat = cliente.getCategoria();
         if (cat == CategoriaCliente.comun || cat == CategoriaCliente.especial || cat == CategoriaCliente.plata) {
-            BigDecimal maximo = referencia.multiply(BigDecimal.valueOf(1.20));
+            BigDecimal maximo = mejorValor.add(veintePorcientoBase);
             if (importe.compareTo(maximo) > 0) {
                 throw new BusinessException(
-                        String.format("La puja máxima es %.2f (20%% sobre la oferta actual)", maximo)
+                        String.format("La puja máxima es %.2f (oferta actual + 20%% del valor base)", maximo)
                 );
             }
         }

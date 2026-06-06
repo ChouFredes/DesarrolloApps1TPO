@@ -38,7 +38,7 @@ public class MedioPagoService {
         medio.setCliente(cliente);
         medio.setTipo(request.tipo());
         medio.setMoneda(request.moneda());
-        medio.setEstado(EstadoMedioPago.PENDIENTE_VERIFICACION);
+        medio.setEstado(EstadoMedioPago.VERIFICADO);
         medio.setEsBancaExterior(Boolean.TRUE.equals(request.esBancaExterior()));
         medio.setNumeroCuenta(request.numeroCuenta());
         medio.setBanco(request.banco());

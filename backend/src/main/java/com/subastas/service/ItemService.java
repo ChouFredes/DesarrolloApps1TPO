@@ -6,6 +6,7 @@ import com.subastas.entity.ItemCatalogo;
 import com.subastas.exception.ResourceNotFoundException;
 import com.subastas.repository.FotoRepository;
 import com.subastas.repository.ItemCatalogoRepository;
+import com.subastas.repository.PujoRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,6 +19,7 @@ public class ItemService {
 
     private final ItemCatalogoRepository itemCatalogoRepository;
     private final FotoRepository fotoRepository;
+    private final PujoRepository pujoRepository;
 
     @Transactional(readOnly = true)
     public ItemDetalleResponse obtenerDetalle(Long itemId) {
@@ -27,6 +29,8 @@ public class ItemService {
         List<String> fotosUrls = buildFotosUrls(item.getProducto().getId());
 
         Long duenioId = item.getProducto().getDuenio() != null ? item.getProducto().getDuenio().getId() : null;
+
+        java.math.BigDecimal mayorOfertaActual = pujoRepository.findMayorImporteByItemId(itemId).orElse(null);
 
         return new ItemDetalleResponse(
                 item.getId(),
@@ -39,7 +43,8 @@ public class ItemService {
                 item.getProducto().getDisponible(),
                 1,
                 duenioId,
-                fotosUrls
+                fotosUrls,
+                mayorOfertaActual
         );
     }
 

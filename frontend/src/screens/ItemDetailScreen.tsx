@@ -32,6 +32,7 @@ interface ItemDetalle {
   comision: number;
   subastado: string;
   fotosUrls: string[];
+  mayorOfertaActual: number | null;
 }
 
 interface SubastaDetalle {
@@ -145,7 +146,7 @@ export function ItemDetailScreen() {
   const truncated = !expanded && description.length > 140;
   const displayDesc = truncated ? description.slice(0, 140) + '…' : description;
 
-  const currentPrice = subasta?.mayorOfertaActual ?? item?.precioBase ?? 0;
+  const currentPrice = item?.mayorOfertaActual ?? item?.precioBase ?? 0;
   const basePrice = item?.precioBase ?? 0;
   const creatorName = subasta?.subastador ?? 'Subastador';
 

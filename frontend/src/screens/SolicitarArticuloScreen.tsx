@@ -127,7 +127,10 @@ export function SolicitarArticuloScreen() {
       );
     } catch (err: any) {
       const msg =
-        err?.response?.data?.message ?? 'Ocurrió un error al enviar la solicitud. Intente nuevamente.';
+        err?.response?.data?.detalle ||
+        err?.response?.data?.mensaje ||
+        err?.response?.data?.message ||
+        'Ocurrió un error al enviar la solicitud. Intente nuevamente.';
       Alert.alert('Error', msg);
     } finally {
       setSubmitting(false);

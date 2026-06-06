@@ -30,7 +30,7 @@ export function LoginScreen() {
       const { accessToken, refreshToken, usuarioId, nombre, apellido, categoria } = res.data;
       login(accessToken, refreshToken, { id: usuarioId, nombre, apellido, categoria });
     } catch (e: any) {
-      setError(e.response?.data?.message || 'Credenciales incorrectas');
+      setError(e.response?.data?.detalle || e.response?.data?.mensaje || e.response?.data?.message || 'Credenciales incorrectas');
     } finally {
       setLoading(false);
     }

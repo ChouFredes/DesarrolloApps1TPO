@@ -14,5 +14,6 @@ public record ItemDetalleResponse(
         String disponible,
         Integer cantidadElementos,
         Long duenioId,
-        List<String> fotosUrls
+        List<String> fotosUrls,
+        BigDecimal mayorOfertaActual
 ) {}

@@ -58,27 +58,18 @@ public class AuthService {
         cliente.setApellido(request.apellido());
         cliente.setDireccion(request.direccion());
         cliente.setPais(pais);
-        cliente.setAdmitido("no");
+        cliente.setAdmitido("si");
         cliente.setEstado(EstadoPersona.activo);
         cliente.setCategoria(CategoriaCliente.comun);
+        cliente.setPassword(passwordEncoder.encode(request.password()));
 
         Cliente saved = clienteRepository.save(cliente);
-        log.info("Registro paso 1 completado para documento: {}, id: {}", request.documento(), saved.getId());
-
-        // TODO: replace documento with real email field when added to DB schema
-        emailService.enviarConfirmacionRegistro(saved.getDocumento(), saved.getNombre());
-
-        TokenActivacion tokenActivacion = new TokenActivacion();
-        tokenActivacion.setUsuario(saved);
-        tokenActivacion.setToken(UUID.randomUUID().toString());
-        tokenActivacion.setExpiraEn(LocalDateTime.now().plusHours(24));
-        tokenActivacion.setUsado(false);
-        tokenActivacionRepository.save(tokenActivacion);
+        log.info("Registro completado para documento: {}, id: {}", request.documento(), saved.getId());
 
         return new RegistroResponse(
                 saved.getId(),
-                "PENDIENTE_VERIFICACION",
-                "Tu solicitud está siendo verificada. Recibirás tu token de activación una vez aprobada."
+                "COMPLETADO",
+                "Usuario registrado y activado con éxito."
         );
     }
 

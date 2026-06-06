@@ -10,5 +10,6 @@ public record RegistroPostorPaso1Request(
         @NotBlank String direccion,
         @NotNull Integer paisId,
         @NotBlank String fotoDniFrente,
-        @NotBlank String fotoDniDorso
+        @NotBlank String fotoDniDorso,
+        @NotBlank String password
 ) {}

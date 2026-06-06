@@ -65,7 +65,7 @@ class AuthServiceTest {
     private RegistroPostorPaso1Request buildPaso1Request(String documento) {
         return new RegistroPostorPaso1Request(
                 documento, "Juan", "Perez", "Calle 123", 1,
-                "foto_frente.jpg", "foto_dorso.jpg"
+                "foto_frente.jpg", "foto_dorso.jpg", "Pokeball1!"
         );
     }
 
@@ -99,29 +99,26 @@ class AuthServiceTest {
     }
 
     @Test
-    void registrarPaso1_exitoso_retornaRegistroResponseConEstadoPendiente() {
+    void registrarPaso1_exitoso_retornaRegistroResponseConEstadoCompletado() {
         RegistroPostorPaso1Request request = buildPaso1Request("87654321");
 
         Pais pais = new Pais();
         pais.setId(1L);
 
-        Cliente savedCliente = buildCliente("87654321", EstadoPersona.activo, "no",
-                CategoriaCliente.comun, null);
+        Cliente savedCliente = buildCliente("87654321", EstadoPersona.activo, "si",
+                CategoriaCliente.comun, "encoded_pwd");
 
         when(clienteRepository.existsByDocumento("87654321")).thenReturn(false);
         when(paisRepository.findById(1L)).thenReturn(Optional.of(pais));
+        when(passwordEncoder.encode("Pokeball1!")).thenReturn("encoded_pwd");
         when(clienteRepository.save(any(Cliente.class))).thenReturn(savedCliente);
-        when(tokenActivacionRepository.save(any(TokenActivacion.class)))
-                .thenAnswer(inv -> inv.getArgument(0));
-        doNothing().when(emailService).enviarConfirmacionRegistro(anyString(), anyString());
 
         RegistroResponse response = authService.registrarPaso1(request);
 
         assertNotNull(response);
-        assertEquals("PENDIENTE_VERIFICACION", response.estado());
+        assertEquals("COMPLETADO", response.estado());
         assertEquals(1L, response.usuarioId());
-        verify(tokenActivacionRepository).save(any(TokenActivacion.class));
-        verify(emailService).enviarConfirmacionRegistro(anyString(), eq("Juan"));
+        verify(clienteRepository).save(any(Cliente.class));
     }
 
     // -----------------------------------------------------------------------

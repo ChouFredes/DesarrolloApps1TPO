@@ -47,6 +47,11 @@ public class ConexionService {
 
     @Transactional
     public ConexionSubastaResponse conectar(Long subastaId, Long clienteId) {
+        return conectar(subastaId, clienteId, null);
+    }
+
+    @Transactional
+    public ConexionSubastaResponse conectar(Long subastaId, Long clienteId, Long itemId) {
         Subasta subasta = subastaRepository.findById(subastaId)
                 .orElseThrow(() -> new ResourceNotFoundException("Subasta", "id", subastaId));
 
@@ -58,7 +63,7 @@ public class ConexionService {
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", "id", clienteId));
 
         if (!medioPagoRepository.existsByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)) {
-            throw new ForbiddenException("Sin medios de pago verificados");
+            throw new ForbiddenException("Medio de pago no verificado, necesario para operar");
         }
 
         if (asistenteRepository.existsByClienteIdAndSubastaEstado(clienteId, EstadoSubasta.abierta)
@@ -79,8 +84,13 @@ public class ConexionService {
                     return guardado;
                 });
 
-        Optional<ItemCatalogo> itemActualOpt = itemCatalogoRepository
-                .findFirstByCatalogoSubastaIdAndSubastado(subastaId, "no");
+        Optional<ItemCatalogo> itemActualOpt;
+        if (itemId != null) {
+            itemActualOpt = itemCatalogoRepository.findById(itemId);
+        } else {
+            itemActualOpt = itemCatalogoRepository
+                    .findFirstByCatalogoSubastaIdAndSubastado(subastaId, "no");
+        }
 
         ItemCatalogoResponse itemActualResponse = null;
         BigDecimal mayorOfertaActual = null;
@@ -102,12 +112,16 @@ public class ConexionService {
             );
             mayorOfertaActual = pujoRepository.findMayorImporteByItemId(item.getId()).orElse(null);
 
-            BigDecimal referencia = mayorOfertaActual != null ? mayorOfertaActual : item.getPrecioBase();
-            if (referencia != null) {
-                pujaMinima = referencia.multiply(BigDecimal.valueOf(1.01));
+            BigDecimal base = item.getPrecioBase();
+            BigDecimal mejorValor = mayorOfertaActual != null ? mayorOfertaActual : base;
+            if (mejorValor != null) {
+                BigDecimal unPorcientoBase = base.multiply(BigDecimal.valueOf(0.01));
+                pujaMinima = mejorValor.add(unPorcientoBase);
+                
                 CategoriaCliente cat = cliente.getCategoria();
                 if (cat != CategoriaCliente.oro && cat != CategoriaCliente.platino) {
-                    pujaMaxima = referencia.multiply(BigDecimal.valueOf(1.20));
+                    BigDecimal veintePorcientoBase = base.multiply(BigDecimal.valueOf(0.20));
+                    pujaMaxima = mejorValor.add(veintePorcientoBase);
                 }
             }
 
