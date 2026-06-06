@@ -115,6 +115,9 @@ public class ArticuloService {
                         polizaNro = producto.getSeguro().getNroPoliza();
                     }
 
+                    List<Foto> fotos = fotoRepository.findByProductoId(producto.getId());
+                    String imagenUrl = fotos.isEmpty() ? null : "/v1/fotos/" + fotos.get(0).getId();
+
                     return new ArticuloUsuarioResponse(
                             producto.getId(),
                             producto.getDescripcionCatalogo(),
@@ -124,10 +127,63 @@ public class ArticuloService {
                             subastaId,
                             precioBase,
                             comision,
-                            polizaNro
+                            polizaNro,
+                            imagenUrl
                     );
                 })
                 .toList();
+    }
+
+    @Transactional(readOnly = true)
+    public ArticuloUsuarioResponse obtenerArticulo(Long clienteId, Long articuloId) {
+        log.info("Obteniendo artículo por id={} para clienteId={}", articuloId, clienteId);
+
+        Producto producto = productoRepository.findByIdAndDuenioId(articuloId, clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
+
+        Optional<ItemCatalogo> itemOpt = itemCatalogoRepository.findFirstByProductoId(producto.getId());
+
+        String estado;
+        Long subastaId = null;
+        BigDecimal precioBase = null;
+        BigDecimal comision = null;
+
+        if (itemOpt.isEmpty()) {
+            estado = "PENDIENTE_INSPECCION";
+        } else {
+            ItemCatalogo item = itemOpt.get();
+            precioBase = item.getPrecioBase();
+            comision = item.getComision();
+            if ("si".equalsIgnoreCase(item.getSubastado())) {
+                estado = "VENDIDO";
+            } else {
+                estado = "ACEPTADO";
+            }
+            if (item.getCatalogo() != null && item.getCatalogo().getSubasta() != null) {
+                subastaId = item.getCatalogo().getSubasta().getId();
+            }
+        }
+
+        String polizaNro = null;
+        if (producto.getSeguro() != null) {
+            polizaNro = producto.getSeguro().getNroPoliza();
+        }
+
+        List<Foto> fotos = fotoRepository.findByProductoId(producto.getId());
+        String imagenUrl = fotos.isEmpty() ? null : "/v1/fotos/" + fotos.get(0).getId();
+
+        return new ArticuloUsuarioResponse(
+                producto.getId(),
+                producto.getDescripcionCatalogo(),
+                producto.getDisponible(),
+                estado,
+                null,
+                subastaId,
+                precioBase,
+                comision,
+                polizaNro,
+                imagenUrl
+        );
     }
 
     @Transactional(readOnly = true)

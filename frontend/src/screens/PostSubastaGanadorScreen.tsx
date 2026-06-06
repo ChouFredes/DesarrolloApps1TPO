@@ -11,9 +11,6 @@ import { colors, spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
-import { MOCK_COMPRA, MOCK_MEDIOS_PAGO } from '../mocks/data';
-
-const DEV_MODE = true;
 
 type RouteType = RouteProp<HomeStackParamList, 'PostSubastaGanador'>;
 
@@ -100,14 +97,6 @@ export function PostSubastaGanadorScreen() {
   }, [modalidadEntrega, envioAnim, retiroAnim]);
 
   const fetchData = useCallback(async () => {
-    if (DEV_MODE) {
-      const verificados = MOCK_MEDIOS_PAGO.filter(m => m.estado === 'VERIFICADO');
-      setCompra(MOCK_COMPRA);
-      setMedios(verificados);
-      if (verificados.length > 0) setMedioPagoId(verificados[0].id);
-      setLoading(false);
-      return;
-    }
     try {
       const [compraRes, mediosRes] = await Promise.all([
         axios.get<CompraDetalle>(`${API_BASE_URL}/compras/${compraId}`, {
@@ -148,19 +137,6 @@ export function PostSubastaGanadorScreen() {
 
   const ejecutarPago = async (confirmaLoss: boolean) => {
     setPagando(true);
-
-    if (DEV_MODE) {
-      setTimeout(() => {
-        setPagando(false);
-        Alert.alert(
-          '¡Pago exitoso!',
-          'Tu compra fue registrada correctamente.',
-          [{ text: 'OK', onPress: () => navigation.goBack() }]
-        );
-      }, 1500);
-      return;
-    }
-
     try {
       await axios.post(`${API_BASE_URL}/compras/${compraId}/pagar`, {
         medioPagoId,

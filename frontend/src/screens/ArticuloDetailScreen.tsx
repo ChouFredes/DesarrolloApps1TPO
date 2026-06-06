@@ -63,9 +63,15 @@ function StatusBadge({ estado }: { estado: ArticuloEstado }) {
       label = 'Rechazado';
       break;
     case 'PENDIENTE':
+    case 'PENDIENTE_INSPECCION':
       bgColor = '#F5F5F5';
       textColor = colors.textSecondary;
       label = 'Pendiente';
+      break;
+    case 'VENDIDO':
+      bgColor = '#E3F2FD';
+      textColor = colors.primary;
+      label = 'Vendido';
       break;
   }
 
@@ -103,15 +109,40 @@ export function ArticuloDetailScreen() {
       try {
         setError(null);
         const [artRes, insRes, locRes] = await Promise.allSettled([
-          axios.get<Articulo>(`${API_BASE_URL}/owner/items/${articuloId}`, { headers }),
-          axios.get<InsuranceInfo>(`${API_BASE_URL}/owner/items/${articuloId}/insurance`, { headers }),
-          axios.get<LocationInfo>(`${API_BASE_URL}/owner/items/${articuloId}/location`, { headers }),
+          axios.get<any>(`${API_BASE_URL}/articulos/${articuloId}`, { headers }),
+          axios.get<any>(`${API_BASE_URL}/articulos/${articuloId}/poliza`, { headers }),
+          axios.get<any>(`${API_BASE_URL}/articulos/${articuloId}/ubicacion`, { headers }),
         ]);
 
-        if (artRes.status === 'fulfilled') setArticulo(artRes.value.data);
-        else setError('No se pudo cargar el artículo.');
-        if (insRes.status === 'fulfilled') setInsurance(insRes.value.data);
-        if (locRes.status === 'fulfilled') setLocation(locRes.value.data);
+        if (artRes.status === 'fulfilled') {
+          const data = artRes.value.data;
+          setArticulo({
+            id: data.id,
+            nombre: data.descripcion,
+            descripcion: data.descripcion,
+            estado: data.estado,
+            imagenUrl: data.imagenUrl ? (data.imagenUrl.startsWith('/') ? `${API_BASE_URL}${data.imagenUrl}` : data.imagenUrl) : undefined,
+          });
+        } else {
+          setError('No se pudo cargar el artículo.');
+        }
+
+        if (insRes.status === 'fulfilled') {
+          const data = insRes.value.data;
+          setInsurance({
+            nroPoliza: data.nroPoliza,
+            compania: data.compania,
+            monto: data.importe ? Number(data.importe) : undefined,
+          });
+        }
+
+        if (locRes.status === 'fulfilled') {
+          const data = locRes.value.data;
+          setLocation({
+            direccion: data.direccion,
+            ciudad: data.deposito || 'Depósito',
+          });
+        }
       } finally {
         setLoading(false);
       }

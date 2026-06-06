@@ -6,7 +6,6 @@ import {
   ScrollView,
   TouchableOpacity,
   ActivityIndicator,
-  Image,
   Animated,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -17,108 +16,27 @@ import { colors, spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
-import { MOCK_COMPRA } from '../mocks/data';
-
-const DEV_MODE = true;
 
 // ---------------------------------------------------------------------------
 // Types
 // ---------------------------------------------------------------------------
 type RouteProps = RouteProp<ProfileStackParamList, 'CompraDetalle'>;
 
-type EstadoCompra =
-  | 'PENDIENTE_DE_PAGO'
-  | 'PAGADA'
-  | 'EN_PREPARACION'
-  | 'EN_CAMINO'
-  | 'ENTREGADO'
-  | 'CANCELADA';
-
 interface CompraDetalle {
   id: number;
-  articulo: {
-    nombre: string;
-    imagenUrl?: string;
-  };
-  precioSubastado: number;
+  descripcionProducto: string;
+  importe: number;
   comision: number;
   costoEnvio: number;
-  total: number;
-  estado: EstadoCompra;
-  retiroPersonal?: boolean;
-  fechaSubasta?: string;
+  totalAPagar: number;
+  retiroPersonal: boolean;
 }
-
-// Adaptamos MOCK_COMPRA al shape de CompraDetalle
-const MOCK_COMPRA_DETALLE: CompraDetalle = {
-  id: MOCK_COMPRA.id,
-  articulo: {
-    nombre: MOCK_COMPRA.descripcionProducto,
-    imagenUrl: 'https://images.unsplash.com/photo-1549317661-bd32c8ce0db2?w=800',
-  },
-  precioSubastado: MOCK_COMPRA.importe,
-  comision: MOCK_COMPRA.comision,
-  costoEnvio: MOCK_COMPRA.costoEnvio,
-  total: MOCK_COMPRA.totalAPagar,
-  estado: 'PENDIENTE_DE_PAGO',
-  retiroPersonal: MOCK_COMPRA.retiroPersonal,
-  fechaSubasta: new Date(Date.now() - 3600000).toISOString(),
-};
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 function formatCurrency(value: number): string {
   return `$ ${value.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
-}
-
-type EstadoConfig = {
-  label: string;
-  color: string;
-  bg: string;
-  icon: React.ComponentProps<typeof Ionicons>['name'];
-};
-
-function getEstadoConfig(estado: EstadoCompra): EstadoConfig {
-  const map: Record<EstadoCompra, EstadoConfig> = {
-    PENDIENTE_DE_PAGO: {
-      label: 'Pendiente de pago',
-      color: '#B45309',
-      bg: '#FEF3C7',
-      icon: 'time-outline',
-    },
-    PAGADA: {
-      label: 'Pagada',
-      color: colors.success,
-      bg: '#D1FAE5',
-      icon: 'checkmark-circle-outline',
-    },
-    EN_PREPARACION: {
-      label: 'En preparación',
-      color: '#1D4ED8',
-      bg: '#DBEAFE',
-      icon: 'construct-outline',
-    },
-    EN_CAMINO: {
-      label: 'En camino',
-      color: '#7C3AED',
-      bg: '#EDE9FE',
-      icon: 'bicycle-outline',
-    },
-    ENTREGADO: {
-      label: 'Entregado',
-      color: colors.success,
-      bg: '#D1FAE5',
-      icon: 'checkmark-done-circle-outline',
-    },
-    CANCELADA: {
-      label: 'Cancelada',
-      color: colors.error,
-      bg: '#FEE2E2',
-      icon: 'close-circle-outline',
-    },
-  };
-  return map[estado] ?? map['PENDIENTE_DE_PAGO'];
 }
 
 // ---------------------------------------------------------------------------
@@ -156,16 +74,6 @@ function PriceRow({
   );
 }
 
-function EstadoBadge({ estado }: { estado: EstadoCompra }) {
-  const cfg = getEstadoConfig(estado);
-  return (
-    <View style={[styles.badge, { backgroundColor: cfg.bg }]}>
-      <Ionicons name={cfg.icon} size={14} color={cfg.color} />
-      <Text style={[styles.badgeText, { color: cfg.color }]}>{cfg.label}</Text>
-    </View>
-  );
-}
-
 // ---------------------------------------------------------------------------
 // Screen
 // ---------------------------------------------------------------------------
@@ -174,7 +82,7 @@ export function CompraDetalleScreen() {
   const navigation = useNavigation<any>();
   const route = useRoute<RouteProps>();
   const { compraId } = route.params;
-  const { token, user } = useAuthStore();
+  const { token } = useAuthStore();
 
   const [compra, setCompra] = useState<CompraDetalle | null>(null);
   const [loading, setLoading] = useState(true);
@@ -192,12 +100,6 @@ export function CompraDetalleScreen() {
   }, [cardOpacity, cardTranslate]);
 
   useEffect(() => {
-    if (DEV_MODE) {
-      setCompra(MOCK_COMPRA_DETALLE);
-      setLoading(false);
-      return;
-    }
-    if (!user?.id) return;
     const load = async () => {
       try {
         setError(null);
@@ -213,7 +115,7 @@ export function CompraDetalleScreen() {
       }
     };
     load();
-  }, [compraId, token, user]);
+  }, [compraId, token]);
 
   const handlePagar = () => {
     // Cross-stack navigation: Home tab → PostSubastaGanador screen
@@ -259,9 +161,6 @@ export function CompraDetalleScreen() {
     );
   }
 
-  const estadoCfg = getEstadoConfig(compra.estado);
-  const isPendiente = compra.estado === 'PENDIENTE_DE_PAGO';
-
   return (
     <SafeAreaView style={styles.safe}>
       {renderHeader()}
@@ -273,31 +172,14 @@ export function CompraDetalleScreen() {
           {/* Item card */}
           <View style={styles.itemCard}>
             <View style={styles.itemThumb}>
-              {compra.articulo?.imagenUrl ? (
-                <Image
-                  source={{ uri: compra.articulo.imagenUrl }}
-                  style={styles.itemThumbImage}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={styles.itemThumbPlaceholder}>
-                  <Ionicons name="image-outline" size={28} color={colors.textSecondary} />
-                </View>
-              )}
+              <View style={styles.itemThumbPlaceholder}>
+                <Ionicons name="cube-outline" size={28} color={colors.textSecondary} />
+              </View>
             </View>
             <View style={styles.itemInfo}>
               <Text style={styles.itemName} numberOfLines={3}>
-                {compra.articulo?.nombre ?? 'Artículo'}
+                {compra.descripcionProducto}
               </Text>
-              {compra.fechaSubasta && (
-                <Text style={styles.itemDate}>
-                  {new Date(compra.fechaSubasta).toLocaleDateString('es-AR', {
-                    day: '2-digit',
-                    month: 'long',
-                    year: 'numeric',
-                  })}
-                </Text>
-              )}
               {compra.retiroPersonal && (
                 <View style={styles.retiroBadge}>
                   <Ionicons name="walk-outline" size={14} color={colors.accent} />
@@ -307,59 +189,30 @@ export function CompraDetalleScreen() {
             </View>
           </View>
 
-          {/* Estado badge card */}
-          <View style={styles.statusCard}>
-            <View style={[styles.statusIconWrap, { backgroundColor: estadoCfg.bg }]}>
-              <Ionicons name={estadoCfg.icon} size={24} color={estadoCfg.color} />
-            </View>
-            <View style={styles.statusInfo}>
-              <Text style={styles.statusTitle}>Estado de la compra</Text>
-              <EstadoBadge estado={compra.estado} />
-            </View>
-          </View>
-
           {/* Price breakdown */}
           <View style={styles.priceCard}>
             <Text style={styles.sectionTitle}>Resumen de pago</Text>
 
-            <PriceRow label="Precio subastado" value={compra.precioSubastado} />
-            <PriceRow label="Comisión" value={compra.comision} />
-            <PriceRow label="Costo de envío" value={compra.costoEnvio} />
+            <PriceRow label="Precio subastado" value={Number(compra.importe)} />
+            <PriceRow label="Comisión" value={Number(compra.comision)} />
+            <PriceRow label="Costo de envío" value={Number(compra.costoEnvio)} />
 
             <View style={styles.divider} />
 
-            {/* Total highlighted */}
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>Total a pagar</Text>
-              <Text style={styles.totalValue}>{formatCurrency(compra.total)}</Text>
+              <Text style={styles.totalValue}>{formatCurrency(Number(compra.totalAPagar))}</Text>
             </View>
           </View>
 
-          {/* Pay button — only shown when pending */}
-          {isPendiente && (
-            <TouchableOpacity
-              style={styles.pagarBtn}
-              onPress={handlePagar}
-              activeOpacity={0.85}
-            >
-              <Ionicons name="card-outline" size={20} color="#fff" />
-              <Text style={styles.pagarText}>Pagar ahora</Text>
-            </TouchableOpacity>
-          )}
-
-          {/* Info row when not pending */}
-          {!isPendiente && (
-            <View style={[styles.infoRow, { borderColor: estadoCfg.color + '40', backgroundColor: estadoCfg.bg }]}>
-              <Ionicons name="information-circle-outline" size={18} color={estadoCfg.color} />
-              <Text style={[styles.infoText, { color: estadoCfg.color }]}>
-                {compra.estado === 'ENTREGADO'
-                  ? 'Tu artículo fue entregado correctamente.'
-                  : compra.estado === 'CANCELADA'
-                  ? 'Esta compra fue cancelada.'
-                  : 'Tu compra está siendo procesada.'}
-              </Text>
-            </View>
-          )}
+          <TouchableOpacity
+            style={styles.pagarBtn}
+            onPress={handlePagar}
+            activeOpacity={0.85}
+          >
+            <Ionicons name="card-outline" size={20} color="#fff" />
+            <Text style={styles.pagarText}>Pagar ahora</Text>
+          </TouchableOpacity>
         </Animated.View>
       </ScrollView>
     </SafeAreaView>

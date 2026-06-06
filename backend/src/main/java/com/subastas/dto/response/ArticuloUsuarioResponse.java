@@ -11,5 +11,6 @@ public record ArticuloUsuarioResponse(
         Long subastaId,
         BigDecimal precioBase,
         BigDecimal comision,
-        String polizaNro
+        String polizaNro,
+        String imagenUrl
 ) {}

@@ -49,9 +49,15 @@ function StatusBadge({ estado }: { estado: ArticuloEstado }) {
       label = 'Rechazado';
       break;
     case 'PENDIENTE':
+    case 'PENDIENTE_INSPECCION':
       bgColor = '#F5F5F5';
       textColor = colors.textSecondary;
       label = 'Pendiente';
+      break;
+    case 'VENDIDO':
+      bgColor = '#E3F2FD';
+      textColor = colors.primary;
+      label = 'Vendido';
       break;
   }
 
@@ -73,10 +79,18 @@ export function MisArticulosScreen() {
   const fetchArticulos = useCallback(async () => {
     try {
       setError(null);
-      const res = await axios.get<Articulo[]>(`${API_BASE_URL}/articulos/mis-articulos`, {
+      const res = await axios.get<any[]>(`${API_BASE_URL}/articulos/mis-articulos`, {
         headers: { Authorization: `Bearer ${token}` },
       });
-      setArticulos(res.data);
+      const mapped: Articulo[] = res.data.map((item) => ({
+        id: item.id,
+        nombre: item.descripcion,
+        descripcion: item.descripcion,
+        estado: item.estado,
+        imagenUrl: item.imagenUrl ? (item.imagenUrl.startsWith('/') ? `${API_BASE_URL}${item.imagenUrl}` : item.imagenUrl) : undefined,
+        nroPoliza: item.polizaNro,
+      }));
+      setArticulos(mapped);
     } catch {
       setError('No se pudieron cargar los artículos.');
     } finally {

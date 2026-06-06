@@ -22,8 +22,48 @@ import { colors, spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
-// ─── Dev flag ───────────────────────────────────────────────────────────────
-const DEV_MODE = false;
+
+// ─── POLYFILLS PARA STOMP EN REACT NATIVE ────────────────────────────────────
+// STOMP necesita TextEncoder/Decoder para funcionar en Android/iOS
+if (typeof (global as any).TextEncoder === 'undefined') {
+  (global as any).TextEncoder = class {
+    encode(str: string) {
+      const utf8Str = unescape(encodeURIComponent(str));
+      const buf = new Uint8Array(utf8Str.length);
+      for (let i = 0; i < utf8Str.length; i++) {
+        buf[i] = utf8Str.charCodeAt(i);
+      }
+      return buf;
+    }
+  };
+}
+if (typeof (global as any).TextDecoder === 'undefined') {
+  (global as any).TextDecoder = class {
+    decode(buf: any) {
+      let view: Uint8Array;
+      if (buf instanceof Uint8Array) {
+        view = buf;
+      } else if (buf instanceof ArrayBuffer) {
+        view = new Uint8Array(buf);
+      } else if (buf && buf.buffer instanceof ArrayBuffer) {
+        view = new Uint8Array(buf.buffer, buf.byteOffset, buf.byteLength);
+      } else {
+        view = new Uint8Array(buf || []);
+      }
+      
+      let str = "";
+      for (let i = 0; i < view.length; i++) {
+        str += String.fromCharCode(view[i]);
+      }
+      
+      try {
+        return decodeURIComponent(escape(str));
+      } catch (e) {
+        return str;
+      }
+    }
+  };
+}
 
 // ─── Types ───────────────────────────────────────────────────────────────────
 type NavProp = StackNavigationProp<HomeStackParamList, 'AuctionRoom'>;
@@ -43,6 +83,7 @@ interface ConectarResponse {
   pujaMinima?: number;
   pujaMaxima?: number | null;
   historialPujas?: Bid[];
+  medioPagoSeleccionado?: { id: number };
 }
 
 type OfferStatus = 'idle' | 'procesando' | 'aceptada' | 'rechazada' | 'superada' | 'invalido';
@@ -75,7 +116,6 @@ export function AuctionRoomScreen() {
   const { token } = useAuthStore();
   const { subastaId, itemId, itemName } = route.params;
 
-  // Core state
   const [bids, setBids] = useState<Bid[]>([]);
   const [bidAmount, setBidAmount] = useState('');
   const [currentPrice, setCurrentPrice] = useState<number>(0);
@@ -85,11 +125,10 @@ export function AuctionRoomScreen() {
   const [initLoading, setInitLoading] = useState(true);
   const [initError, setInitError] = useState<string | null>(null);
 
-  // Corrección 1.2 — rango de pujas
   const [pujaMinima, setPujaMinima] = useState<number | null>(null);
   const [pujaMaxima, setPujaMaxima] = useState<number | null | undefined>(undefined);
+  const [medioPagoId, setMedioPagoId] = useState<number | null>(null);
 
-  // Corrección 1.3 — estados post-oferta
   const [offerStatus, setOfferStatus] = useState<OfferStatus>('idle');
   const [offerMessage, setOfferMessage] = useState('');
   const lastMyBid = useRef<number>(0);
@@ -100,7 +139,6 @@ export function AuctionRoomScreen() {
   const timeLeft = useCountdown(fechaFin);
   const priceScale = useRef(new Animated.Value(1)).current;
 
-  // Price bounce animation
   useEffect(() => {
     if (currentPrice === 0) return;
     Animated.sequence([
@@ -109,7 +147,6 @@ export function AuctionRoomScreen() {
     ]).start();
   }, [currentPrice]);
 
-  // Status banner fade in/out
   const showStatusBanner = useCallback((fadeIn: boolean, cb?: () => void) => {
     Animated.timing(statusFadeAnim, {
       toValue: fadeIn ? 1 : 0,
@@ -125,7 +162,6 @@ export function AuctionRoomScreen() {
     });
   }, [showStatusBanner]);
 
-  // Show banner then auto-dismiss after `ms`
   const triggerOfferStatus = useCallback((
     newStatus: OfferStatus,
     message: string,
@@ -140,78 +176,75 @@ export function AuctionRoomScreen() {
     });
   }, [showStatusBanner, dismissOfferStatus]);
 
-  // ── Step 1: REST connect ──────────────────────────────────────────────────
   const initialize = useCallback(async () => {
     try {
       setInitError(null);
       setInitLoading(true);
 
-      let conexionData: ConectarResponse;
+      const [conectarRes, subastaRes] = await Promise.all([
+        axios.post<ConectarResponse>(
+          `${API_BASE_URL}/subastas/${subastaId}/conectar`,
+          {},
+          { headers: { Authorization: `Bearer ${token}` } },
+        ),
+        axios.get<{ mayorOfertaActual?: number; fechaFin: string; itemActual?: { precioBase: number } }>(
+          `${API_BASE_URL}/subastas/${subastaId}`,
+          { headers: { Authorization: `Bearer ${token}` } },
+        ),
+      ]);
 
-      {
-        const [conectarRes, subastaRes] = await Promise.all([
-          axios.post<ConectarResponse>(
-            `${API_BASE_URL}/subastas/${subastaId}/conectar`,
-            {},
-            { headers: { Authorization: `Bearer ${token}` } },
-          ),
-          axios.get<{ mayorOfertaActual?: number; precioBase: number; fechaFin: string }>(
-            `${API_BASE_URL}/subastas/${subastaId}`,
-            { headers: { Authorization: `Bearer ${token}` } },
-          ),
-        ]);
-        conexionData = {
-          ...conectarRes.data,
-          mayorOfertaActual:
-            conectarRes.data.mayorOfertaActual ??
-            subastaRes.data.mayorOfertaActual ??
-            subastaRes.data.precioBase,
-        };
-        setFechaFin(subastaRes.data.fechaFin);
-      }
+      const conexionData = {
+        ...conectarRes.data,
+        mayorOfertaActual:
+          conectarRes.data.mayorOfertaActual ??
+          subastaRes.data.mayorOfertaActual ??
+          subastaRes.data.itemActual?.precioBase ??
+          0,
+      };
+      setFechaFin(subastaRes.data.fechaFin);
 
-      const { mayorOfertaActual, numeroPostor: postor, pujaMinima: min, pujaMaxima: max, historialPujas } = conexionData;
+      setCurrentPrice(conexionData.mayorOfertaActual);
+      setNumeroPostor(conexionData.numeroPostor);
+      if (conexionData.pujaMinima !== undefined) setPujaMinima(conexionData.pujaMinima);
+      if (conexionData.pujaMaxima !== undefined) setPujaMaxima(conexionData.pujaMaxima);
+      if (conexionData.medioPagoSeleccionado?.id) setMedioPagoId(conexionData.medioPagoSeleccionado.id);
 
-      setCurrentPrice(mayorOfertaActual);
-      setNumeroPostor(postor);
-      if (min !== undefined) setPujaMinima(min);
-      if (max !== undefined) setPujaMaxima(max);          // null = sin límite
-      if (historialPujas && historialPujas.length > 0) {
-        const sorted = [...historialPujas].sort(
+      if (conexionData.historialPujas && conexionData.historialPujas.length > 0) {
+        const sorted = [...conexionData.historialPujas].sort(
           (a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime(),
         );
         setBids(sorted);
       }
-
     } catch (e: any) {
-      const msg = e?.response?.data?.message ?? 'No se pudo conectar a la subasta.';
-      setInitError(msg);
+      console.error("Error inicializando subasta:", e);
+      setInitError(e?.response?.data?.message ?? 'No se pudo conectar a la subasta.');
     } finally {
       setInitLoading(false);
     }
   }, [subastaId, token]);
 
-  // ── Step 2: WebSocket STOMP ───────────────────────────────────────────────
   const connectWs = useCallback(() => {
+    const wsUrl = `${API_BASE_URL.replace(/^http/, 'ws')}/ws-native`;
+    console.log("Intentando conexión WebSocket a:", wsUrl);
+
     setStatus('connecting');
 
     const client = new Client({
-      brokerURL: `${API_BASE_URL.replace(/^http/, 'ws')}/ws`,
+      brokerURL: wsUrl,
       connectHeaders: { Authorization: `Bearer ${token}` },
+      debug: (msg) => console.log('STOMP DEBUG:', msg),
       reconnectDelay: 5000,
+      heartbeatIncoming: 4000,
+      heartbeatOutgoing: 4000,
+      forceBinaryWSFrames: true,
+      appendMissingNULLonIncoming: true,
       onConnect: () => {
+        console.log("¡CONEXIÓN WS ESTABLECIDA!");
         setStatus('connected');
 
-        // Subscribe to public bids topic
         client.subscribe(`/topic/auctions/${subastaId}/bids`, (msg) => {
           try {
-            const puja = JSON.parse(msg.body) as {
-              numeroPostor?: number | string;
-              importe?: number;
-              monto?: number;
-              timestamp?: string;
-              fechaHora?: string;
-            };
+            const puja = JSON.parse(msg.body);
             const amount = puja.importe ?? puja.monto ?? 0;
             const newBid: Bid = {
               id: `${Date.now()}-${Math.random()}`,
@@ -222,113 +255,77 @@ export function AuctionRoomScreen() {
             setBids((prev) => [newBid, ...prev]);
             setCurrentPrice((prev) => Math.max(prev, amount));
 
-            // Corrección 1.3 — estado SUPERADA
-            // Si el bid entrante supera mi última puja y es de otro postor → notificar
-            setNumeroPostor((myPostor) => {
-              if (
-                myPostor !== null &&
-                puja.numeroPostor !== myPostor &&
-                amount > lastMyBid.current &&
-                lastMyBid.current > 0
-              ) {
-                triggerOfferStatus('superada', '¡Tu oferta fue superada!', 4000);
-              }
-              return myPostor;
-            });
-          } catch {
-            // Malformed message — ignore
+            if (numeroPostor !== null && puja.numeroPostor !== numeroPostor && amount > lastMyBid.current && lastMyBid.current > 0) {
+              triggerOfferStatus('superada', '¡Tu oferta fue superada!', 4000);
+            }
+          } catch (err) {
+            console.error("Error procesando mensaje de puja:", err);
           }
         });
 
-        // Subscribe to private error queue
         client.subscribe('/user/queue/errors', (msg) => {
-          try {
-            const err = JSON.parse(msg.body) as { message?: string };
-            Alert.alert('Error en subasta', err.message ?? 'Error desconocido.');
-          } catch {
-            Alert.alert('Error en subasta', msg.body ?? 'Error desconocido.');
-          }
+          Alert.alert('Error en subasta', msg.body);
         });
       },
-      onDisconnect: () => setStatus('disconnected'),
-      onStompError: () => setStatus('error'),
-      onWebSocketError: () => setStatus('error'),
+      onDisconnect: () => {
+        console.log("WS Desconectado");
+        setStatus('disconnected');
+      },
+      onStompError: (frame) => {
+        console.error('STOMP ERROR:', frame.headers['message']);
+        setStatus('error');
+      },
+      onWebSocketError: (event) => {
+        console.error('WEB_SOCKET ERROR:', event);
+        setStatus('error');
+      },
     });
 
     client.activate();
     stompClient.current = client;
-  }, [subastaId, token, triggerOfferStatus]);
+  }, [subastaId, token, triggerOfferStatus, numeroPostor]);
 
   useEffect(() => {
     initialize();
     connectWs();
 
     return () => {
-      axios
-        .post(
-          `${API_BASE_URL}/subastas/${subastaId}/desconectar`,
-          {},
-          { headers: { Authorization: `Bearer ${token}` } },
-        )
-        .catch(() => {});
       stompClient.current?.deactivate();
+      axios.post(`${API_BASE_URL}/subastas/${subastaId}/desconectar`, {}, { headers: { Authorization: `Bearer ${token}` } }).catch(() => {});
     };
-  }, [initialize, connectWs, subastaId, token]);
+  }, [subastaId]);
 
-  // ── Puja handling ─────────────────────────────────────────────────────────
   const handleBid = () => {
     const amount = parseFloat(bidAmount.replace(',', '.'));
-
-    // Estado 5: MONTO_INVALIDO — validación inline antes de enviar
     if (isNaN(amount) || amount <= 0) {
-      triggerOfferStatus('invalido', 'Ingresá un monto válido mayor a 0.');
+      triggerOfferStatus('invalido', 'Monto inválido.');
       return;
     }
     if (amount <= currentPrice) {
-      triggerOfferStatus('invalido', `La oferta debe superar la actual: $ ${currentPrice.toLocaleString('es-AR')}`);
-      return;
-    }
-    if (pujaMinima !== null && pujaMinima !== undefined && amount < pujaMinima) {
-      triggerOfferStatus('invalido', `El monto mínimo permitido es $ ${pujaMinima.toLocaleString('es-AR')}`);
-      return;
-    }
-    if (pujaMaxima !== null && pujaMaxima !== undefined && amount > pujaMaxima) {
-      triggerOfferStatus('invalido', `El monto máximo permitido es $ ${pujaMaxima.toLocaleString('es-AR')}`);
+      triggerOfferStatus('invalido', `Debe superar $${currentPrice}`);
       return;
     }
 
     if (!stompClient.current?.connected) {
-      Alert.alert('Sin conexión', 'No estás conectado al servidor de subastas.');
+      Alert.alert('Sin conexión', 'Reconectando al servidor...');
       return;
     }
 
-    // Estado 1: PROCESANDO
     triggerOfferStatus('procesando', '');
-
     try {
       stompClient.current!.publish({
         destination: `/app/auctions/${subastaId}/bid`,
-        headers: { Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ itemId, importe: amount }),
+        body: JSON.stringify({ itemId, importe: amount, medioPagoId }),
       });
       lastMyBid.current = amount;
       setBidAmount('');
       triggerOfferStatus('aceptada', '¡Oferta enviada!', 2000);
-    } catch {
-      triggerOfferStatus('rechazada', 'No se pudo enviar la oferta.', 3000);
+    } catch (err) {
+      console.error("Error al enviar puja:", err);
+      triggerOfferStatus('rechazada', 'Error al enviar.', 3000);
     }
   };
 
-  const formatTime = (iso: string) => {
-    try {
-      const d = new Date(iso);
-      return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}:${String(d.getSeconds()).padStart(2, '0')}`;
-    } catch {
-      return iso;
-    }
-  };
-
-  // ── Render helpers ────────────────────────────────────────────────────────
   const renderBid = ({ item }: { item: Bid }) => (
     <View style={[styles.bidRow, item.numeroPostor === numeroPostor && styles.bidRowMine]}>
       <View style={[styles.bidPostorBadge, item.numeroPostor === numeroPostor && styles.bidPostorBadgeMine]}>
@@ -336,26 +333,11 @@ export function AuctionRoomScreen() {
       </View>
       <View style={styles.bidInfo}>
         <Text style={styles.bidAmount}>$ {item.importe.toLocaleString('es-AR')}</Text>
-        <Text style={styles.bidTime}>{formatTime(item.timestamp)}</Text>
+        <Text style={styles.bidTime}>{new Date(item.timestamp).toLocaleTimeString()}</Text>
       </View>
-      {item.numeroPostor === numeroPostor && (
-        <Ionicons name="person-circle-outline" size={18} color={colors.accent} />
-      )}
     </View>
   );
 
-  // Banner config per status
-  const bannerConfig: Record<Exclude<OfferStatus, 'idle'>, { bg: string; icon: React.ComponentProps<typeof Ionicons>['name']; label?: string }> = {
-    procesando: { bg: colors.primary, icon: 'hourglass-outline' },
-    aceptada: { bg: colors.success, icon: 'checkmark-circle-outline' },
-    rechazada: { bg: colors.error, icon: 'close-circle-outline' },
-    superada: { bg: '#E67E22', icon: 'trending-up-outline' },
-    invalido: { bg: '#7F8C8D', icon: 'alert-circle-outline' },
-  };
-
-  const isOfferBlocked = offerStatus === 'procesando';
-
-  // ── Loading / Error screens ───────────────────────────────────────────────
   if (initLoading) {
     return (
       <SafeAreaView style={styles.safe}>
@@ -367,350 +349,102 @@ export function AuctionRoomScreen() {
     );
   }
 
-  if (initError) {
-    return (
-      <SafeAreaView style={styles.safe}>
-        <View style={styles.centered}>
-          <Ionicons name="cloud-offline-outline" size={48} color={colors.textSecondary} />
-          <Text style={styles.errorText}>{initError}</Text>
-          <TouchableOpacity style={styles.retryBtn} onPress={initialize}>
-            <Text style={styles.retryText}>Reintentar</Text>
-          </TouchableOpacity>
-        </View>
-      </SafeAreaView>
-    );
-  }
-
-  // ── Main render ───────────────────────────────────────────────────────────
   return (
     <SafeAreaView style={styles.safe}>
-      <KeyboardAvoidingView
-        style={styles.flex}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={0}
-      >
-        {/* ── Header ── */}
+      <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
-          <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
-            <Ionicons name="arrow-back" size={24} color="#fff" />
-          </TouchableOpacity>
+          <TouchableOpacity onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={24} color="#fff" /></TouchableOpacity>
           <View style={styles.headerCenter}>
-            <Text style={styles.headerTitle} numberOfLines={1}>{itemName}</Text>
-            <Text style={styles.headerTimer}>{timeLeft || '—'}</Text>
+            <Text style={styles.headerTitle}>{itemName}</Text>
+            <Text style={styles.headerTimer}>{timeLeft}</Text>
           </View>
-          <View style={[
-            styles.statusDot,
-            status === 'connected' ? styles.dotGreen
-              : status === 'connecting' ? styles.dotYellow
-              : styles.dotRed,
-          ]} />
+          <View style={[styles.statusDot, status === 'connected' ? styles.dotGreen : status === 'connecting' ? styles.dotYellow : styles.dotRed]} />
         </View>
 
-        {/* ── Precio actual + postor ── */}
         <View style={styles.priceSection}>
           <Text style={styles.ofertaLabel}>Oferta actual</Text>
           <Animated.View style={{ transform: [{ scale: priceScale }] }}>
             <Text style={styles.ofertaPrice}>$ {currentPrice.toLocaleString('es-AR')}</Text>
           </Animated.View>
-          {numeroPostor !== null && (
-            <Text style={styles.postorLabel}>Tu número de postor: #{numeroPostor}</Text>
-          )}
-
-          {/* Corrección 1.2 — rango de pujas */}
-          {(pujaMinima !== null && pujaMinima !== undefined) && (
-            <View style={styles.rangePill}>
-              <Text style={styles.rangeText}>
-                Mín:{'  '}
-                <Text style={styles.rangeValue}>$ {pujaMinima.toLocaleString('es-AR')}</Text>
-                {'   —   '}
-                Máx:{'  '}
-                <Text style={styles.rangeValue}>
-                  {pujaMaxima != null ? `$ ${pujaMaxima.toLocaleString('es-AR')}` : 'Sin límite'}
-                </Text>
-              </Text>
-            </View>
-          )}
+          {numeroPostor && <Text style={styles.postorLabel}>Tu número: #{numeroPostor}</Text>}
         </View>
 
-        {/* ── Historial ── */}
         <View style={styles.historySection}>
-          <Text style={styles.historySectionTitle}>Historial de ofertas</Text>
-          {bids.length === 0 ? (
-            <View style={styles.emptyBids}>
-              <Ionicons name="megaphone-outline" size={36} color={colors.textSecondary} />
-              <Text style={styles.emptyBidsText}>Sé el primero en ofertar</Text>
-            </View>
-          ) : (
-            <FlatList
-              ref={listRef}
-              data={bids}
-              keyExtractor={(item) => item.id}
-              renderItem={renderBid}
-              showsVerticalScrollIndicator={false}
-              contentContainerStyle={styles.bidList}
-              ItemSeparatorComponent={() => <View style={styles.bidSeparator} />}
-            />
-          )}
+          <FlatList
+            data={bids}
+            keyExtractor={(item, index) => index.toString()}
+            renderItem={renderBid}
+            contentContainerStyle={styles.bidList}
+            ItemSeparatorComponent={() => <View style={styles.bidSeparator} />}
+          />
         </View>
 
-        {/* ── Área de puja (Corrección 1.2 + 1.3) ── */}
         <View style={styles.inputArea}>
-          {/* Fila input + botón */}
           <View style={styles.inputBar}>
             <TextInput
-              style={[styles.bidInput, isOfferBlocked && styles.bidInputDisabled]}
+              style={styles.bidInput}
               value={bidAmount}
-              onChangeText={(v) => {
-                setBidAmount(v);
-                // Limpiar estado invalido al escribir
-                if (offerStatus === 'invalido') dismissOfferStatus();
-              }}
-              placeholder={
-                pujaMinima
-                  ? `Mín. $ ${pujaMinima.toLocaleString('es-AR')}`
-                  : `Mín. $ ${(currentPrice + 1).toLocaleString('es-AR')}`
-              }
-              placeholderTextColor={colors.textSecondary}
+              onChangeText={setBidAmount}
+              placeholder={`Mín. $${(currentPrice + 1).toLocaleString()}`}
               keyboardType="numeric"
-              returnKeyType="done"
-              editable={status === 'connected' && !isOfferBlocked}
+              editable={status === 'connected'}
             />
             <TouchableOpacity
-              style={[
-                styles.pujarBtn,
-                offerStatus === 'aceptada' && styles.pujarBtnAceptada,
-                (isOfferBlocked || status !== 'connected') && styles.pujarBtnDisabled,
-              ]}
+              style={[styles.pujarBtn, status !== 'connected' && styles.pujarBtnDisabled]}
               onPress={handleBid}
-              disabled={isOfferBlocked || status !== 'connected'}
-              activeOpacity={0.8}
+              disabled={status !== 'connected'}
             >
-              {offerStatus === 'procesando' ? (
-                <ActivityIndicator color="#fff" size="small" />
-              ) : (
-                <Text style={styles.pujarBtnText}>
-                  {offerStatus === 'aceptada' ? '✓ Aceptada' : 'Pujar'}
-                </Text>
-              )}
+              <Text style={styles.pujarBtnText}>Pujar</Text>
             </TouchableOpacity>
           </View>
 
-          {/* Banner de estado con fade */}
           {offerStatus !== 'idle' && (
-            <Animated.View
-              style={[
-                styles.statusBanner,
-                { opacity: statusFadeAnim, backgroundColor: bannerConfig[offerStatus].bg },
-              ]}
-            >
-              {offerStatus === 'procesando' ? (
-                <>
-                  <ActivityIndicator color="#fff" size="small" />
-                  <Text style={styles.statusBannerText}>Procesando oferta…</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name={bannerConfig[offerStatus].icon} size={18} color="#fff" />
-                  <Text style={styles.statusBannerText}>{offerMessage}</Text>
-                  {offerStatus !== 'aceptada' && offerStatus !== 'superada' && (
-                    <TouchableOpacity onPress={dismissOfferStatus} style={styles.bannerClose} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                      <Ionicons name="close" size={16} color="rgba(255,255,255,0.8)" />
-                    </TouchableOpacity>
-                  )}
-                </>
-              )}
+            <Animated.View style={[styles.statusBanner, { opacity: statusFadeAnim, backgroundColor: offerStatus === 'aceptada' ? colors.success : colors.primary }]}>
+              <Text style={styles.statusBannerText}>{offerMessage || 'Procesando...'}</Text>
             </Animated.View>
           )}
         </View>
-
-        {/* Disconnected banner */}
-        {status !== 'connected' && (
-          <View style={styles.disconnectedBanner}>
-            <Ionicons name="wifi-outline" size={16} color="#fff" />
-            <Text style={styles.disconnectedText}>
-              {status === 'connecting' ? 'Conectando…' : 'Sin conexión — reconectando…'}
-            </Text>
-          </View>
-        )}
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-export default AuctionRoomScreen;
-
-// ─── Styles ───────────────────────────────────────────────────────────────────
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: colors.background },
   flex: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center', gap: spacing.md },
-  loadingText: { color: colors.textSecondary, marginTop: spacing.sm },
-  errorText: { color: colors.textSecondary, textAlign: 'center', marginHorizontal: spacing.xl },
-  retryBtn: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    borderRadius: borderRadius.xl,
-  },
-  retryText: { color: '#fff', fontWeight: '600' },
-
-  // Header
-  header: {
-    backgroundColor: colors.primary,
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
-  },
-  backBtn: { padding: spacing.xs },
-  headerCenter: { flex: 1 },
+  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  loadingText: { color: colors.textSecondary, marginTop: 10 },
+  header: { backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', padding: 15 },
+  headerCenter: { flex: 1, marginLeft: 15 },
   headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  headerTimer: { color: colors.accent, fontSize: 13, fontWeight: '600' },
-  statusDot: {
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    borderWidth: 1.5,
-    borderColor: 'rgba(255,255,255,0.3)',
-  },
+  headerTimer: { color: colors.accent, fontSize: 12 },
+  statusDot: { width: 12, height: 12, borderRadius: 6 },
   dotGreen: { backgroundColor: '#27AE60' },
   dotYellow: { backgroundColor: '#F5A623' },
   dotRed: { backgroundColor: '#E74C3C' },
-
-  // Price section
-  priceSection: {
-    backgroundColor: colors.primary,
-    paddingHorizontal: spacing.base,
-    paddingBottom: spacing.xl,
-    alignItems: 'center',
-  },
-  ofertaLabel: { color: 'rgba(255,255,255,0.7)', fontSize: 14 },
-  ofertaPrice: { color: colors.accent, fontSize: 42, fontWeight: '700', marginTop: 2 },
-  postorLabel: { color: 'rgba(255,255,255,0.6)', fontSize: 12, marginTop: spacing.xs },
-
-  // Range pill (corrección 1.2)
-  rangePill: {
-    marginTop: spacing.sm,
-    backgroundColor: 'rgba(255,255,255,0.1)',
-    borderRadius: borderRadius.full,
-    paddingHorizontal: spacing.base,
-    paddingVertical: 6,
-  },
-  rangeText: { color: 'rgba(255,255,255,0.65)', fontSize: 12 },
-  rangeValue: { color: '#fff', fontWeight: '600' },
-
-  // History
-  historySection: {
-    flex: 1,
-    backgroundColor: colors.background,
-    paddingTop: spacing.md,
-  },
-  historySectionTitle: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: colors.text,
-    paddingHorizontal: spacing.base,
-    marginBottom: spacing.sm,
-  },
-  bidList: { paddingHorizontal: spacing.base, paddingBottom: spacing.sm },
-  bidRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    padding: spacing.md,
-    gap: spacing.md,
-    ...shadows.card,
-  },
-  bidRowMine: {
-    borderLeftWidth: 3,
-    borderLeftColor: colors.accent,
-  },
-  bidPostorBadge: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
-    minWidth: 48,
-    alignItems: 'center',
-  },
+  priceSection: { backgroundColor: colors.primary, paddingBottom: 30, alignItems: 'center' },
+  ofertaLabel: { color: 'rgba(255,255,255,0.7)' },
+  ofertaPrice: { color: colors.accent, fontSize: 42, fontWeight: '700' },
+  postorLabel: { color: 'rgba(255,255,255,0.6)', marginTop: 5 },
+  historySection: { flex: 1, padding: 15 },
+  bidList: { paddingBottom: 20 },
+  bidRow: { flexDirection: 'row', backgroundColor: colors.surface, padding: 15, borderRadius: 10, ...shadows.card },
+  bidRowMine: { borderLeftWidth: 4, borderLeftColor: colors.accent },
+  bidPostorBadge: { backgroundColor: colors.primary, padding: 5, borderRadius: 5, minWidth: 40, alignItems: 'center' },
   bidPostorBadgeMine: { backgroundColor: colors.accent },
-  bidPostorText: { color: '#fff', fontSize: 12, fontWeight: '700' },
-  bidInfo: { flex: 1 },
-  bidAmount: { fontSize: 16, fontWeight: '700', color: colors.text },
-  bidTime: { fontSize: 12, color: colors.textSecondary, marginTop: 2 },
-  bidSeparator: { height: spacing.sm },
-  emptyBids: {
-    flex: 1,
-    alignItems: 'center',
-    paddingTop: spacing.xxl,
-    gap: spacing.md,
-  },
-  emptyBidsText: { color: colors.textSecondary },
-
-  // Input area (corrección 1.2 + 1.3)
-  inputArea: {
-    backgroundColor: colors.surface,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
-  },
-  inputBar: {
-    flexDirection: 'row',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    gap: spacing.md,
-    alignItems: 'center',
-  },
-  bidInput: {
-    flex: 1,
-    backgroundColor: colors.background,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    fontSize: 15,
-    color: colors.text,
-    borderWidth: 1,
-    borderColor: colors.border,
-  },
-  bidInputDisabled: { opacity: 0.5 },
-  pujarBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.xl,
-    paddingVertical: spacing.md,
-    minWidth: 90,
-    alignItems: 'center',
-  },
-  pujarBtnAceptada: { backgroundColor: colors.success },
+  bidPostorText: { color: '#fff', fontWeight: 'bold' },
+  bidInfo: { marginLeft: 15, flex: 1 },
+  bidAmount: { fontSize: 16, fontWeight: 'bold' },
+  bidTime: { fontSize: 12, color: colors.textSecondary },
+  bidSeparator: { height: 10 },
+  inputArea: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
+  inputBar: { flexDirection: 'row', padding: 15, gap: 10 },
+  bidInput: { flex: 1, backgroundColor: colors.background, borderRadius: 25, paddingHorizontal: 20, height: 50, borderWidth: 1, borderColor: colors.border },
+  pujarBtn: { backgroundColor: colors.primary, borderRadius: 25, paddingHorizontal: 25, justifyContent: 'center' },
   pujarBtnDisabled: { opacity: 0.5 },
-  pujarBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
-
-  // Status banner (corrección 1.3)
-  statusBanner: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    paddingBottom: spacing.md,
-    gap: spacing.sm,
-  },
-  statusBannerText: {
-    flex: 1,
-    color: '#fff',
-    fontSize: 13,
-    fontWeight: '600',
-  },
-  bannerClose: { padding: 2 },
-
-  // Disconnected
-  disconnectedBanner: {
-    backgroundColor: colors.error,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: spacing.sm,
-    gap: spacing.xs,
-  },
-  disconnectedText: { color: '#fff', fontSize: 12, fontWeight: '500' },
+  pujarBtnText: { color: '#fff', fontWeight: 'bold' },
+  statusBanner: { padding: 10, alignItems: 'center' },
+  statusBannerText: { color: '#fff', fontWeight: 'bold' }
 });
+
+export default AuctionRoomScreen;

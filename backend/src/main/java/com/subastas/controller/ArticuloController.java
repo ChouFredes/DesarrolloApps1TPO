@@ -41,6 +41,15 @@ public class ArticuloController {
         return ResponseEntity.ok(articuloService.listarArticulos(clienteId));
     }
 
+    @GetMapping("/articulos/{articuloId}")
+    public ResponseEntity<ArticuloUsuarioResponse> obtenerArticulo(
+            @PathVariable Long articuloId,
+            @RequestHeader("Authorization") String bearerToken) {
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("GET /articulos/{} — clienteId={}", articuloId, clienteId);
+        return ResponseEntity.ok(articuloService.obtenerArticulo(clienteId, articuloId));
+    }
+
     @GetMapping("/articulos/{articuloId}/poliza")
     public ResponseEntity<PolizaSeguroResponse> obtenerPoliza(
             @PathVariable Long articuloId,

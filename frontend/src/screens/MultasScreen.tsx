@@ -6,10 +6,10 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
+import axios from 'axios';
 import { colors, spacing, borderRadius, shadows } from '../theme';
-import { MOCK_MULTAS } from '../mocks/data';
-
-const DEV_MODE = true;
+import { useAuthStore } from '../stores/authStore';
+import { API_BASE_URL } from '../config/api';
 
 interface Multa {
   id: number;
@@ -21,7 +21,6 @@ interface Multa {
   fechaPago?: string;
 }
 
-// Pulsing badge for PENDIENTE items
 function PulseBadge() {
   const anim = useRef(new Animated.Value(1)).current;
 
@@ -41,38 +40,41 @@ function PulseBadge() {
 
 export function MultasScreen() {
   const navigation = useNavigation();
+  const { token } = useAuthStore();
   const [multas, setMultas] = useState<Multa[]>([]);
   const [loading, setLoading] = useState(true);
   const [pagando, setPagando] = useState<number | null>(null);
 
-  const cargarMultas = useCallback(() => {
-    if (DEV_MODE) {
-      setMultas(MOCK_MULTAS as Multa[]);
+  const cargarMultas = useCallback(async () => {
+    try {
+      const res = await axios.get<Multa[]>(`${API_BASE_URL}/multas/mis-multas`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      setMultas(res.data);
+    } catch {
+      Alert.alert('Error', 'No se pudieron cargar las multas.');
+    } finally {
       setLoading(false);
-      return;
     }
-    // Real fetch placeholder — reemplazar cuando el backend esté activo
-    setLoading(false);
-  }, []);
+  }, [token]);
 
   useEffect(() => { cargarMultas(); }, [cargarMultas]);
 
-  const handlePagar = (multaId: number) => {
-    if (DEV_MODE) {
-      setPagando(multaId);
-      setTimeout(() => {
-        setMultas(prev =>
-          prev.map(m => m.id === multaId
-            ? { ...m, estado: 'PAGADA' as const, fechaPago: new Date().toISOString() }
-            : m
-          )
-        );
-        setPagando(null);
-        Alert.alert('Pago simulado', 'La multa fue marcada como pagada (DEV_MODE).');
-      }, 1500);
-      return;
+  const handlePagar = async (multaId: number) => {
+    setPagando(multaId);
+    try {
+      const res = await axios.post<Multa>(
+        `${API_BASE_URL}/multas/${multaId}/pagar`,
+        {},
+        { headers: { Authorization: `Bearer ${token}` } },
+      );
+      setMultas(prev => prev.map(m => m.id === multaId ? res.data : m));
+    } catch (e: any) {
+      const msg = e?.response?.data?.message ?? 'No se pudo procesar el pago.';
+      Alert.alert('Error', msg);
+    } finally {
+      setPagando(null);
     }
-    // Real payment call here
   };
 
   const hasPendiente = multas.some(m => m.estado === 'PENDIENTE');
@@ -93,7 +95,7 @@ export function MultasScreen() {
 
       <Text style={styles.motivo}>{item.motivo}</Text>
       <Text style={styles.importe}>
-        $ {item.importe?.toLocaleString('es-AR', { minimumFractionDigits: 2 })}
+        $ {Number(item.importe).toLocaleString('es-AR', { minimumFractionDigits: 2 })}
       </Text>
 
       {item.estado === 'PENDIENTE' && (

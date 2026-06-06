@@ -44,7 +44,7 @@ public class PujaWebSocketHandler {
             log.info("Puja procesada y difundida: subastaId={}, itemId={}, pujaId={}, numeroPostor={}",
                     subastaId, request.itemId(), broadcast.pujaId(), broadcast.numeroPostor());
 
-        } catch (BusinessException ex) {
+        } catch (Exception ex) {
             log.warn("Puja rechazada para clienteId={}: {}", clienteId, ex.getMessage());
             messagingTemplate.convertAndSendToUser(
                     principal.getName(),
