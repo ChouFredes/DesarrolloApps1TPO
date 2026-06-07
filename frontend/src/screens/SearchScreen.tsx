@@ -24,12 +24,12 @@ type NavProp = StackNavigationProp<HomeStackParamList, 'HomeMain'>;
 
 interface Subasta {
   id: number;
-  nombre: string;
-  descripcion: string;
-  precioBase: number;
+  titulo: string;
+  ubicacion: string;
+  cantidadItems: number;
   fechaFin: string;
   categoria: string;
-  imagenUrl?: string;
+  imagenPortadaUrl?: string | null;
   subastadorNombre?: string;
   subastadorApellido?: string;
   items?: { id: number; nombre: string; imagenUrl?: string }[];
@@ -77,10 +77,11 @@ export function SearchScreen() {
   const filtered = subastas.filter((s) => {
     const matchesQuery =
       !query ||
-      s.nombre.toLowerCase().includes(lowerQuery) ||
-      s.subastadorNombre?.toLowerCase().includes(lowerQuery) ||
-      s.subastadorApellido?.toLowerCase().includes(lowerQuery) ||
-      s.categoria?.toLowerCase().includes(lowerQuery);
+      (s.titulo && s.titulo.toLowerCase().includes(lowerQuery)) ||
+      (s.subastadorNombre && s.subastadorNombre.toLowerCase().includes(lowerQuery)) ||
+      (s.subastadorApellido && s.subastadorApellido.toLowerCase().includes(lowerQuery)) ||
+      (s.categoria && s.categoria.toLowerCase().includes(lowerQuery)) ||
+      (s.ubicacion && s.ubicacion.toLowerCase().includes(lowerQuery));
 
     const matchesFilter =
       filter === 'TODO' ||
@@ -93,17 +94,29 @@ export function SearchScreen() {
   const handleJoin = async (subasta: Subasta) => {
     setJoiningId(subasta.id);
     try {
-      await axios.post(
+      const res = await axios.post(
         `${API_BASE_URL}/subastas/${subasta.id}/conectar`,
         {},
         { headers: { Authorization: `Bearer ${token}` } },
       );
-      const itemId = subasta.items?.[0]?.id ?? subasta.id;
-      navigation.navigate('AuctionRoom', {
-        subastaId: subasta.id,
-        itemId,
-        itemName: subasta.nombre,
-      });
+      const itemId = res.data?.itemActual?.id;
+      if (itemId) {
+        navigation.navigate('Home' as any, {
+          screen: 'AuctionRoom',
+          params: {
+            subastaId: subasta.id,
+            itemId,
+            itemName: res.data.itemActual.descripcionCatalogo || subasta.titulo || 'Artículo',
+          },
+        } as any);
+      } else {
+        navigation.navigate('Home' as any, {
+          screen: 'CatalogoDetail',
+          params: {
+            subastaId: subasta.id,
+          },
+        } as any);
+      }
     } catch (e: any) {
       const msg =
         e?.response?.data?.detalle ||
@@ -121,17 +134,21 @@ export function SearchScreen() {
       item.subastadorNombre
         ? `${item.subastadorNombre} ${item.subastadorApellido ?? ''}`.trim()
         : 'Subastador';
-    const imageUrl = item.items?.[0]?.imagenUrl ?? item.imagenUrl;
+    const imageUrl = item.imagenPortadaUrl
+      ? (item.imagenPortadaUrl.startsWith('/') ? `${API_BASE_URL}${item.imagenPortadaUrl}` : item.imagenPortadaUrl)
+      : null;
     const isJoining = joiningId === item.id;
 
     return (
       <TouchableOpacity
         style={styles.resultCard}
         onPress={() =>
-          navigation.navigate('ItemDetail', {
-            itemId: item.items?.[0]?.id ?? item.id,
-            subastaId: item.id,
-          })
+          navigation.navigate('Home' as any, {
+            screen: 'CatalogoDetail',
+            params: {
+              subastaId: item.id,
+            },
+          } as any)
         }
         activeOpacity={0.85}
       >
@@ -151,8 +168,8 @@ export function SearchScreen() {
             </View>
           )}
           <Text style={styles.resultCreator} numberOfLines={1}>{creatorName}</Text>
-          <Text style={styles.resultName} numberOfLines={2}>{item.nombre}</Text>
-          <Text style={styles.resultPrice}>$ {item.precioBase.toLocaleString()}</Text>
+          <Text style={styles.resultName} numberOfLines={2}>{item.titulo}</Text>
+          <Text style={styles.resultPrice}>{item.cantidadItems ?? 0} artículos</Text>
         </View>
         <TouchableOpacity
           style={[styles.joinBtn, isJoining && styles.joinBtnDisabled]}

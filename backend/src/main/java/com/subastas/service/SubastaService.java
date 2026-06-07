@@ -54,27 +54,37 @@ public class SubastaService {
         return subastas.stream()
                 .map(s -> new SubastaResponse(
                         s.getId(),
-                        tituloFor(s.getCategoria()),
+                        tituloFor(s),
                         s.getCategoria() != null ? s.getCategoria().name() : null,
                         s.getUbicacion(),
                         fechaFinIso(s),
                         countPorSubasta.getOrDefault(s.getId(), 0L).intValue(),
-                        imagenFor(s.getCategoria())
+                        imagenFor(s)
                 ))
                 .toList();
     }
 
-    private String tituloFor(CategoriaSubasta cat) {
+    private String tituloFor(Subasta s) {
+        if (s == null) return "Subasta";
+        if (s.getTitulo() != null && !s.getTitulo().isBlank()) {
+            return s.getTitulo();
+        }
+        CategoriaSubasta cat = s.getCategoria();
         if (cat == null) return "Subasta";
         return switch (cat) {
             case pokemon           -> "Subasta de Pokémon";
             case maquinas_tecnicas -> "Subasta de Máquinas Técnicas";
-            case pociones          -> "Subasta de Pociones";
+            case pociones          -> "Bundle pociones";
             default                -> "Subasta — " + cat.name();
         };
     }
 
-    private String imagenFor(CategoriaSubasta cat) {
+    private String imagenFor(Subasta s) {
+        if (s == null) return null;
+        if (s.getFotoPortada() != null) {
+            return "/subastas/" + s.getId() + "/portada";
+        }
+        CategoriaSubasta cat = s.getCategoria();
         if (cat == null) return null;
         return switch (cat) {
             case pokemon           -> "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png";
@@ -82,6 +92,29 @@ public class SubastaService {
             case pociones          -> "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/39.png";
             default                -> null;
         };
+    }
+
+    @Transactional(readOnly = true)
+    public org.springframework.http.ResponseEntity<byte[]> obtenerPortada(Long subastaId) {
+        Subasta subasta = subastaRepository.findById(subastaId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subasta", "id", subastaId));
+
+        byte[] data = subasta.getFotoPortada();
+        if (data == null) {
+            return org.springframework.http.ResponseEntity.notFound().build();
+        }
+
+        org.springframework.http.MediaType contentType = org.springframework.http.MediaType.IMAGE_JPEG; // default
+        if (data.length > 4) {
+            if (data[0] == (byte) 0x89 && data[1] == (byte) 0x50 && 
+                data[2] == (byte) 0x4E && data[3] == (byte) 0x47) {
+                contentType = org.springframework.http.MediaType.IMAGE_PNG;
+            }
+        }
+
+        return org.springframework.http.ResponseEntity.ok()
+                .contentType(contentType)
+                .body(data);
     }
 
     private String fechaFinIso(Subasta s) {
@@ -132,8 +165,8 @@ public class SubastaService {
 
         return new SubastaDetalleResponse(
                 subasta.getId(),
-                tituloFor(subasta.getCategoria()),
-                imagenFor(subasta.getCategoria()),
+                tituloFor(subasta),
+                imagenFor(subasta),
                 fechaFinIso(subasta),
                 subasta.getFecha(),
                 subasta.getHora() != null ? subasta.getHora().toString() : null,
@@ -208,12 +241,12 @@ public class SubastaService {
         return subastas.stream()
                 .map(s -> new SubastaResponse(
                         s.getId(),
-                        tituloFor(s.getCategoria()),
+                        tituloFor(s),
                         s.getCategoria() != null ? s.getCategoria().name() : null,
                         s.getUbicacion(),
                         fechaFinIso(s),
                         counts.getOrDefault(s.getId(), 0L).intValue(),
-                        imagenFor(s.getCategoria())
+                        imagenFor(s)
                 ))
                 .toList();
     }

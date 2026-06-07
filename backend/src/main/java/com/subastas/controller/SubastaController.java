@@ -35,6 +35,11 @@ public class SubastaController {
         return ResponseEntity.ok(subastaService.obtenerDetalle(id, clienteId));
     }
 
+    @GetMapping("/{id}/portada")
+    public ResponseEntity<byte[]> obtenerPortada(@PathVariable Long id) {
+        return subastaService.obtenerPortada(id);
+    }
+
     @GetMapping("/{id}/catalogo")
     public ResponseEntity<List<ItemCatalogoResponse>> obtenerCatalogo(
             @PathVariable Long id,

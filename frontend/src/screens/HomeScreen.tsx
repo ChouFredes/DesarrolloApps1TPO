@@ -127,7 +127,9 @@ interface CardProps {
 }
 
 function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: CardProps) {
-  const imgUrl = item.imagenPortadaUrl ?? '';
+  const imgUrl = item.imagenPortadaUrl
+    ? (item.imagenPortadaUrl.startsWith('/') ? `${API_BASE_URL}${item.imagenPortadaUrl}` : item.imagenPortadaUrl)
+    : '';
   const ar     = useAspectRatio(imgUrl, seedAR(item.id));
   const imgH   = clampH(colWidth / ar);
   const { full, short } = useCountdownBoth(item.fechaFin);

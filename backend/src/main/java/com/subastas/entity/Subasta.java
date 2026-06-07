@@ -20,6 +20,9 @@ public class Subasta {
     @Column(name = "identificador")
     private Long id;
 
+    @Column(name = "titulo")
+    private String titulo;
+
     @Column(name = "fecha")
     private LocalDate fecha;
 
@@ -49,4 +52,8 @@ public class Subasta {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "subastador")
     private Subastador subastador;
+
+    @Lob
+    @Column(name = "foto_portada", columnDefinition = "LONGBLOB")
+    private byte[] fotoPortada;
 }

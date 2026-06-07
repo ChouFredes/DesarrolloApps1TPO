@@ -1,11 +1,5 @@
 -- =============================================================
--- VIVO SUBASTAS — Datos iniciales (Pokémon Theme)
--- Nombres de tablas y columnas en snake_case:
--- SpringPhysicalNamingStrategy los convierte automáticamente.
---   itemsCatalogo   → items_catalogo
---   registroDeSubasta → registro_de_subasta
---   nroPoliza       → nro_poliza
---   precioBase      → precio_base   (etc.)
+-- VIVO SUBASTAS — Datos iniciales de Subastas Pokémon
 -- =============================================================
 
 INSERT INTO paises (numero, nombre, nacionalidad, idioma) VALUES
@@ -20,13 +14,14 @@ INSERT INTO seguros (nro_poliza, compania, poliza_combinada, importe) VALUES
 ('PKM-002', 'Devon Corp. Aseguradoras', 'SI', 150000.00),
 ('PKM-003', 'Jenny Security Services',  'NO',  10000.00);
 
--- password = BCrypt de "Pokeball1!"
+-- password = BCrypt de "a" para todos los usuarios -> $2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm
 INSERT INTO personas (identificador, tipo, nombre, apellido, documento, direccion, estado, password) VALUES
-(1, 'subastador', 'Rowan',    'Serbal',  '11111111', 'Pueblo Hojarasca, Sinnoh', 'activo', '$2b$12$OVbnxO1VJWW5TRtnPdoD2umpoSZsAq3NZtUubWrDMysl3wWTGmY/y'),
-(2, 'duenio',     'Giovanni', 'Sakaki',  '22222222', 'Pueblo Paleta, Kanto',     'activo', '$2b$12$OVbnxO1VJWW5TRtnPdoD2umpoSZsAq3NZtUubWrDMysl3wWTGmY/y'),
-(3, 'cliente',    'Ash',      'Ketchum', '33333333', 'Pueblo Paleta, Kanto',     'activo', '$2b$12$OVbnxO1VJWW5TRtnPdoD2umpoSZsAq3NZtUubWrDMysl3wWTGmY/y'),
-(4, 'cliente',    'Misty',    'Kasumi',  '44444444', 'Ciudad Celeste, Kanto',    'activo', '$2b$12$OVbnxO1VJWW5TRtnPdoD2umpoSZsAq3NZtUubWrDMysl3wWTGmY/y'),
-(5, 'cliente',    'Brock',    'Takeshi', '55555555', 'Ciudad Plateada, Kanto',   'activo', '$2b$12$OVbnxO1VJWW5TRtnPdoD2umpoSZsAq3NZtUubWrDMysl3wWTGmY/y');
+(1, 'subastador', 'Rowan',    'Serbal',  '11111111', 'Pueblo Hojarasca, Sinnoh', 'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
+(2, 'duenio',     'Giovanni', 'Sakaki',  '22222222', 'Pueblo Paleta, Kanto',     'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
+(3, 'cliente',    'Ash',      'Ketchum', '33333333', 'Pueblo Paleta, Kanto',     'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
+(4, 'cliente',    'Misty',    'Kasumi',  '44444444', 'Ciudad Celeste, Kanto',    'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
+(5, 'cliente',    'Brock',    'Takeshi', '55555555', 'Ciudad Plateada, Kanto',   'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
+(6, 'cliente',    'test',     'user',    '1',        'Calle de Pruebas 123',     'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm');
 
 INSERT INTO subastadores (identificador, matricula, region) VALUES
 (1, 'MAT-PKM-001', 'Kanto / Sinnoh');
@@ -37,166 +32,198 @@ INSERT INTO duenios (identificador, verificacion_financiera, verificacion_judici
 INSERT INTO clientes (identificador, admitido, categoria, numero_pais) VALUES
 (3, 'SI', 'platino',  1),
 (4, 'SI', 'oro',      1),
-(5, 'SI', 'especial', 1);
+(5, 'SI', 'especial', 1),
+(6, 'SI', 'platino',  1);
 
-INSERT INTO subastas (identificador, fecha, hora, estado, categoria, ubicacion, tiene_deposito, seguridad_propia, capacidad_asistentes, subastador) VALUES
-(1, '2026-06-10', '14:00:00', 'abierta', 'pokemon',           'Centro de Subastas Kanto — Salón Principal',   'SI', 'SI', 500, 1),
-(2, '2026-06-12', '16:00:00', 'abierta', 'maquinas_tecnicas', 'Centro de Subastas Kanto — Sala Técnica',      'NO', 'SI', 200, 1),
-(3, '2026-06-15', '10:00:00', 'abierta', 'pociones',          'Mercado Ciudad Carmín — Pabellón Oeste',       'NO', 'NO', 300, 1),
-(4, '2026-05-25', '15:00:00', 'cerrada', 'pokemon',           'Centro de Subastas Kanto — Bóveda Legendaria', 'SI', 'SI', 100, 1);
+-- =============================================================
+-- SUBASTAS ACTIVAS
+-- =============================================================
+
+INSERT INTO subastas (identificador, titulo, fecha, hora, estado, categoria, ubicacion, tiene_deposito, seguridad_propia, capacidad_asistentes, subastador) VALUES
+(1, 'PokeBalls', '2026-06-20', '11:00:00', 'abierta', 'pokemon',           'Centro de Subastas Kanto — Sala Coleccionistas', 'SI', 'SI', 150, 1),
+(2, 'Piedras de Evolución',  '2026-06-21', '12:00:00', 'abierta', 'pokemon',           'Gimnasio Celeste — Salón Evolución',             'SI', 'NO', 100, 1),
+(3, 'Mejoras de Combate', '2026-06-22', '13:00:00', 'abierta', 'maquinas_tecnicas', 'Centro de Batallas Kanto — Sala X',              'NO', 'SI', 200, 1),
+(4, 'Bundle berries',       '2026-06-23', '14:00:00', 'abierta', 'pociones',          'Pueblo Lavanda — Tienda Orgánica',               'NO', 'NO', 120, 1),
+(5, 'Objetos Equipables', '2026-06-24', '15:00:00', 'abierta', 'otros',             'Ciudad Azulona — Mercado Central',               'SI', 'SI', 300, 1);
 
 INSERT INTO catalogos (identificador, subasta) VALUES
-(1, 1), (2, 2), (3, 3), (4, 4);
+(1, 1),
+(2, 2),
+(3, 3),
+(4, 4),
+(5, 5);
 
--- ── Pokémon Atacantes ──────────────────────────────────────────
+-- =============================================================
+-- PRODUCTOS
+-- =============================================================
+
+-- Subasta 1: Poké Balls (IDs 1-5)
 INSERT INTO productos (identificador, descripcion_catalogo, descripcion_completa, disponible, duenio, seguro) VALUES
-(1, 'Charizard — Atacante Fuego/Volador',
-   'Tipo: Fuego / Volador | PS: 78 | Atk: 109 | Def: 78 | Atk.Esp: 109 | Def.Esp: 85 | Vel: 100 | Habilidad: Mar Llamas. Movimientos: Llamarada, Giro de Dragón, Cola de Hierro, Vuelo.',
+(1, 'pokeball',
+   'La Poké Ball clásica para capturar Pokémon. Tasa de captura: ×1. Material: plástico de alto impacto rojo y blanco. Edición coleccionista sellada de fábrica.',
+   'SI', 2, 'PKM-003'),
+(2, 'greatball',
+   'Poké Ball de mayor rendimiento. Tasa de captura: ×1,5. Carcasa azul y rojo. Ideal para Pokémon de nivel medio. Edición coleccionista sellada.',
+   'SI', 2, 'PKM-003'),
+(3, 'ultraball',
+   'La mejor Poké Ball de uso general. Tasa de captura: ×2. Diseño negro y amarillo premium. Muy eficaz contra Pokémon difíciles. Sellada de fábrica.',
    'SI', 2, 'PKM-001'),
-(2, 'Dragonite — Atacante Dragón/Volador',
-   'Tipo: Dragón / Volador | PS: 91 | Atk: 134 | Def: 95 | Atk.Esp: 100 | Def.Esp: 100 | Vel: 80 | Habilidad: Vista Lince. Movimientos: Cometa Draco, Hiperrayo, Golpe Cuerpo, Trueno.',
+(4, 'safariball',
+   'Poké Ball de edición especial, solo disponible en la Zona Safari. Tasa de captura: ×1,5 en entorno Safari. Diseño verde con rayas oscuras. Pieza de colección rara.',
    'SI', 2, 'PKM-001'),
-(3, 'Salamence — Atacante Dragón/Volador',
-   'Tipo: Dragón / Volador | PS: 95 | Atk: 135 | Def: 80 | Atk.Esp: 110 | Def.Esp: 80 | Vel: 100 | Habilidad: Intimidación. Movimientos: Cometa Draco, Terremoto, Vuelo.',
-   'SI', 2, 'PKM-001'),
-(4, 'Garchomp — Atacante Dragón/Tierra',
-   'Tipo: Dragón / Tierra | PS: 108 | Atk: 130 | Def: 95 | Atk.Esp: 80 | Def.Esp: 85 | Vel: 102 | Habilidad: Paso Arena. Movimientos: Garra Dragón, Terremoto, Espada Danza.',
-   'SI', 2, 'PKM-001'),
-(5, 'Machamp — Atacante Lucha',
-   'Tipo: Lucha | PS: 90 | Atk: 130 | Def: 80 | Atk.Esp: 65 | Def.Esp: 85 | Vel: 55 | Habilidad: Sin Límite. Movimientos: Puño Dinámico, Golpe Roca, Patada Ígnea.',
-   'SI', 2, 'PKM-001'),
--- ── Pokémon Defensores ─────────────────────────────────────────
-(6, 'Umbreon — Defensor Siniestro',
-   'Tipo: Siniestro | PS: 95 | Atk: 65 | Def: 110 | Atk.Esp: 60 | Def.Esp: 130 | Vel: 65 | Habilidad: Sincronía. Movimientos: Deseo, Maldición, Tóxico, Puño Sombra.',
-   'SI', 2, 'PKM-001'),
-(7, 'Blissey — Defensor Normal (Máx. PS)',
-   'Tipo: Normal | PS: 255 | Atk: 10 | Def: 10 | Atk.Esp: 75 | Def.Esp: 135 | Vel: 55 | Habilidad: Dicha. Movimientos: Canto, Recuperación, Llanto Mortal, Fuego Secreto.',
-   'SI', 2, 'PKM-001'),
-(8, 'Skarmory — Defensor Acero/Volador',
-   'Tipo: Acero / Volador | PS: 65 | Atk: 80 | Def: 140 | Atk.Esp: 40 | Def.Esp: 70 | Vel: 70 | Habilidad: Aguante. Movimientos: Tóxico, Trampa Rocas, Tornado, Cuerpo Puro.',
-   'SI', 2, 'PKM-001'),
-(9, 'Ferrothorn — Defensor Planta/Acero',
-   'Tipo: Planta / Acero | PS: 74 | Atk: 94 | Def: 131 | Atk.Esp: 54 | Def.Esp: 116 | Vel: 20 | Habilidad: Cuerpo Férreo. Movimientos: Trampa Rocas, Tóxico, Manto Espejo.',
-   'SI', 2, 'PKM-001'),
-(10, 'Cloyster — Defensor Agua/Hielo (Def. 180)',
-    'Tipo: Agua / Hielo | PS: 50 | Atk: 95 | Def: 180 | Atk.Esp: 85 | Def.Esp: 45 | Vel: 70 | Habilidad Oculta: Destreza. Movimientos: Rompecorazas, Carámbano, Onda Acuática.',
-    'SI', 2, 'PKM-001'),
--- ── MT por calidad ─────────────────────────────────────────────
-(11, 'MT17 Rugido — Calidad Básica',
-    'MT de uso único. Enseña: Rugido | Tipo: Normal | Estado. Baja 1 nivel el Ataque del rival. Calidad: Básica.',
-    'SI', 2, 'PKM-002'),
-(12, 'MT28 Excavar — Calidad Básica',
-    'MT de uso único. Enseña: Excavar | Tipo: Tierra | Potencia: 80 | Exactitud: 100 | Físico. Calidad: Básica.',
-    'SI', 2, 'PKM-002'),
-(13, 'MT24 Trueno — Calidad Especial',
-    'MT de uso único. Enseña: Trueno | Tipo: Eléctrico | Potencia: 110 | Exactitud: 70. 30% de paralizar. Calidad: Especial.',
-    'SI', 2, 'PKM-002'),
-(14, 'MT13 Rayo Hielo — Calidad Especial',
-    'MT de uso único. Enseña: Rayo Hielo | Tipo: Hielo | Potencia: 90 | Exactitud: 100. 10% de congelar. Calidad: Especial.',
-    'SI', 2, 'PKM-002'),
-(15, 'MT26 Terremoto — Calidad Avanzada',
-    'MT de uso único. Enseña: Terremoto | Tipo: Tierra | Potencia: 100 | Exactitud: 100. Afecta a todos. Calidad: Avanzada.',
-    'SI', 2, 'PKM-002'),
-(16, 'MT29 Psíquico — Calidad Avanzada',
-    'MT de uso único. Enseña: Psíquico | Tipo: Psíquico | Potencia: 90 | Exactitud: 100. Calidad: Avanzada.',
-    'SI', 2, 'PKM-002'),
-(17, 'MT59 Pulso Dragón — Calidad Premium',
-    'MT de uso único. Enseña: Pulso Dragón | Tipo: Dragón | Potencia: 85 | Exactitud: 100. Calidad: Premium.',
-    'SI', 2, 'PKM-002'),
-(18, 'MT02 Garra Dragón — Élite + Voucher Cometa Draco',
-    'MT de uso único. Enseña: Garra Dragón | Tipo: Dragón | Potencia: 80 | Exactitud: 100. INCLUYE voucher Cometa Draco (Potencia 130). Calidad: Élite.',
-    'SI', 2, 'PKM-002'),
--- ── Pociones ───────────────────────────────────────────────────
-(19, 'Poción ×10',          'Restaura 20 PS. Lote de 10 unidades. Fabricado por Silph Co.',                                         'SI', 2, 'PKM-003'),
-(20, 'Super Poción ×5',     'Restaura 60 PS. Lote de 5 unidades.',                                                                  'SI', 2, 'PKM-003'),
-(21, 'Hiper Poción ×3',     'Restaura 200 PS. Lote de 3 unidades.',                                                                 'SI', 2, 'PKM-003'),
-(22, 'Poción Máxima ×1',    'Restaura TODOS los PS de un Pokémon.',                                                                 'SI', 2, 'PKM-003'),
-(23, 'Revivir ×3',          'Revive con la mitad de los PS. Lote de 3 unidades.',                                                   'SI', 2, 'PKM-003'),
-(24, 'Revivir Máximo ×1',   'Revive con TODOS los PS.',                                                                             'SI', 2, 'PKM-003'),
-(25, 'Elixir ×2',           'Restaura 10 PP de todos los movimientos. Lote de 2 unidades.',                                         'SI', 2, 'PKM-003'),
-(26, 'Elixir Máximo ×1',    'Restaura TODOS los PP de TODOS los movimientos.',                                                      'SI', 2, 'PKM-003'),
-(27, 'Agua Fresca ×10',     'Restaura 25 PS. Pack de 10 botellas.',                                                                 'SI', 2, 'PKM-003'),
-(28, 'Kit Curación Completo','3× Antigripal, 3× Antídoto, 3× Antiparalítico, 3× Despertar, 3× Quemapolvo, 3× Hielo Cura.',        'SI', 2, 'PKM-003'),
--- ── Legendarios (subasta cerrada) ─────────────────────────────
-(29, 'Mewtwo — Atacante Psíquico Legendario',
-    'Tipo: Psíquico | PS: 106 | Atk: 110 | Def: 90 | Atk.Esp: 154 | Def.Esp: 90 | Vel: 130 | Habilidad: Presión. Movimientos: Psíquico, Sombra Mental, Foco Resplandor, Recuperación.',
-    'SI', 2, 'PKM-001'),
-(30, 'Lugia — Defensor Psíquico/Volador Legendario',
-    'Tipo: Psíquico / Volador | PS: 106 | Atk: 90 | Def: 130 | Atk.Esp: 90 | Def.Esp: 154 | Vel: 110 | Habilidad: Presión. Movimientos: Aeroblast, Canto Mortal, Recuperación.',
-    'SI', 2, 'PKM-001');
+(5, 'masterball',
+   'La Poké Ball definitiva. Captura cualquier Pokémon sin fallo. Fabricada por Silph Co. Diseño morado con motivos genéticos. Ejemplar único certificado. Máxima rareza.',
+   'SI', 2, 'PKM-001');
 
+-- Subasta 2: Piedras Evolutivas (Stones) (IDs 6-10)
+INSERT INTO productos (identificador, descripcion_catalogo, descripcion_completa, disponible, duenio, seguro) VALUES
+(6, 'Piedra Fuego (Fire Stone)',
+   'Una piedra peculiar de color anaranjado que hace evolucionar a ciertas especies de Pokémon. Caliente al tacto como carbón encendido.',
+   'SI', 2, 'PKM-002'),
+(7, 'Piedra Hoja (Leaf Stone)',
+   'Una piedra peculiar con un patrón de hojas que hace evolucionar a ciertas especies de Pokémon de tipo Planta.',
+   'SI', 2, 'PKM-002'),
+(8, 'Piedra Lunar (Moon Stone)',
+   'Una piedra peculiar que brilla como el cielo nocturno. Hace evolucionar a ciertas especies de Pokémon.',
+   'SI', 2, 'PKM-001'),
+(9, 'Piedra Trueno (Thunder Stone)',
+   'Una piedra peculiar con un patrón de rayo que induce la evolución de Pokémon eléctricos.',
+   'SI', 2, 'PKM-002'),
+(10, 'Piedra Agua (Water Stone)',
+   'Una piedra peculiar de un azul profundo que hace evolucionar a ciertas especies de Pokémon de tipo Agua.',
+   'SI', 2, 'PKM-002');
+
+-- Subasta 3: Objetos de Batalla (Xmove) (IDs 11-14)
+INSERT INTO productos (identificador, descripcion_catalogo, descripcion_completa, disponible, duenio, seguro) VALUES
+(11, 'Ataque X (X Attack)',
+   'Objeto de un solo uso que aumenta temporalmente la estadística de Ataque de un Pokémon en pleno combate.',
+   'SI', 2, 'PKM-003'),
+(12, 'Defensa X (X Defense)',
+   'Objeto de un solo uso que aumenta temporalmente la estadística de Defensa de un Pokémon en pleno combate.',
+   'SI', 2, 'PKM-003'),
+(13, 'Ataque Especial X (X Sp. Atk)',
+   'Objeto de un solo uso que aumenta temporalmente la estadística de Ataque Especial de un Pokémon en pleno combate.',
+   'SI', 2, 'PKM-003'),
+(14, 'Velocidad X (X Speed)',
+   'Objeto de un solo uso que aumenta temporalmente la estadística de Velocidad de un Pokémon en pleno combate.',
+   'SI', 2, 'PKM-003');
+
+-- Subasta 4: Bayas (Berry) (IDs 15-19)
+INSERT INTO productos (identificador, descripcion_catalogo, descripcion_completa, disponible, duenio, seguro) VALUES
+(15, 'Baya Oram (Bluk Berry)',
+   'Ingrediente tradicional para la elaboración de Pokochos. De color morado intenso y piel rugosa.',
+   'SI', 2, 'PKM-003'),
+(16, 'Baya Atania (Chesto Berry)',
+   'Una baya de cáscara dura. Cura al instante el estado de sueño de un Pokémon cuando este la consume.',
+   'SI', 2, 'PKM-003'),
+(17, 'Baya Lichi (Liechi Berry)',
+   'Una baya extremadamente rara. Aumenta el Ataque del portador si sus puntos de salud caen a niveles críticos.',
+   'SI', 2, 'PKM-001'),
+(18, 'Baya Latano (Nanab Berry)',
+   'Una baya dulce que calma a los Pokémon salvajes cuando se les ofrece, facilitando notablemente su captura.',
+   'SI', 2, 'PKM-003'),
+(19, 'Baya Petaya (Petaya Berry)',
+   'Una baya exótica y muy cotizada. Aumenta el Ataque Especial del portador en situaciones de extremo peligro en combate.',
+   'SI', 2, 'PKM-001');
+
+-- Subasta 5: Objetos Equipables (Items) (IDs 20-24)
+INSERT INTO productos (identificador, descripcion_catalogo, descripcion_completa, disponible, duenio, seguro) VALUES
+(20, 'Moneda Amuleto (Amulet Coin)',
+   'Objeto equipable de gran valor. Duplica la recompensa monetaria ganada al finalizar un combate si el Pokémon portador participa activamente.',
+   'SI', 2, 'PKM-002'),
+(21, 'Restos (Leftovers)',
+   'Un objeto equipable muy útil. Restaura gradualmente un pequeño porcentaje de los PS máximos del portador al final de cada turno.',
+   'SI', 2, 'PKM-001'),
+(22, 'Imán (Magnet)',
+   'Objeto equipable de polaridad reforzada. Potencia la fuerza de todos los movimientos de tipo Eléctrico ejecutados por el portador.',
+   'SI', 2, 'PKM-002'),
+(23, 'Antihielo (Never-Melt Ice)',
+   'Un trozo de hielo eterno que nunca se derrite. Incrementa la potencia de los movimientos de tipo Hielo ejecutados por el portador.',
+   'SI', 2, 'PKM-002'),
+(24, 'Cuchara Torcida (Twisted Spoon)',
+   'Objeto equipable impregnado de energía mental. Aumenta la potencia de los movimientos de tipo Psíquico ejecutados por el portador.',
+   'SI', 2, 'PKM-002');
+
+-- =============================================================
+-- ITEMS EN CATÁLOGO
+-- =============================================================
+
+-- Catalogo 1 (Poké Balls - Subasta 1)
 INSERT INTO items_catalogo (identificador, catalogo, producto, precio_base, comision, subastado) VALUES
-(1,  1,  1, 250000.00, 10.00, 'NO'),
-(2,  1,  2, 180000.00, 10.00, 'NO'),
-(3,  1,  3, 220000.00, 10.00, 'NO'),
-(4,  1,  4, 300000.00, 10.00, 'NO'),
-(5,  1,  5,  80000.00, 10.00, 'NO'),
-(6,  1,  6, 120000.00, 10.00, 'NO'),
-(7,  1,  7, 100000.00, 10.00, 'NO'),
-(8,  1,  8,  90000.00, 10.00, 'NO'),
-(9,  1,  9, 110000.00, 10.00, 'NO'),
-(10, 1, 10,  75000.00, 10.00, 'NO'),
-(11, 2, 11,   2000.00, 12.00, 'NO'),
-(12, 2, 12,   2500.00, 12.00, 'NO'),
-(13, 2, 13,   8000.00, 12.00, 'NO'),
-(14, 2, 14,   8500.00, 12.00, 'NO'),
-(15, 2, 15,  25000.00, 12.00, 'NO'),
-(16, 2, 16,  22000.00, 12.00, 'NO'),
-(17, 2, 17,  80000.00, 12.00, 'NO'),
-(18, 2, 18, 200000.00, 12.00, 'NO'),
-(19, 3, 19,    150.00, 15.00, 'NO'),
-(20, 3, 20,    400.00, 15.00, 'NO'),
-(21, 3, 21,   1200.00, 15.00, 'NO'),
-(22, 3, 22,   2500.00, 15.00, 'NO'),
-(23, 3, 23,   3000.00, 15.00, 'NO'),
-(24, 3, 24,  12000.00, 15.00, 'NO'),
-(25, 3, 25,   6000.00, 15.00, 'NO'),
-(26, 3, 26,  18000.00, 15.00, 'NO'),
-(27, 3, 27,    250.00, 15.00, 'NO'),
-(28, 3, 28,   5000.00, 15.00, 'NO'),
-(29, 4, 29, 800000.00, 10.00, 'SI'),
-(30, 4, 30, 500000.00, 10.00, 'SI');
+(1, 1, 1,   500.00, 15.00, 'NO'),
+(2, 1, 2,  1500.00, 15.00, 'NO'),
+(3, 1, 3,  5000.00, 12.00, 'NO'),
+(4, 1, 4,  8000.00, 12.00, 'NO'),
+(5, 1, 5, 50000.00, 10.00, 'NO');
+
+-- Catalogo 2 (Stones - Subasta 2)
+INSERT INTO items_catalogo (identificador, catalogo, producto, precio_base, comision, subastado) VALUES
+(6,  2, 6,  2100.00, 15.00, 'NO'),
+(7,  2, 7,  2100.00, 15.00, 'NO'),
+(8,  2, 8,  3000.00, 12.00, 'NO'),
+(9,  2, 9,  2100.00, 15.00, 'NO'),
+(10, 2, 10, 2100.00, 15.00, 'NO');
+
+-- Catalogo 3 (Xmove - Subasta 3)
+INSERT INTO items_catalogo (identificador, catalogo, producto, precio_base, comision, subastado) VALUES
+(11, 3, 11, 350.00, 15.00, 'NO'),
+(12, 3, 12, 350.00, 15.00, 'NO'),
+(13, 3, 13, 350.00, 15.00, 'NO'),
+(14, 3, 14, 350.00, 15.00, 'NO');
+
+-- Catalogo 4 (Bayas - Subasta 4)
+INSERT INTO items_catalogo (identificador, catalogo, producto, precio_base, comision, subastado) VALUES
+(15, 4, 15, 120.00, 15.00, 'NO'),
+(16, 4, 16, 200.00, 15.00, 'NO'),
+(17, 4, 17, 800.00, 12.00, 'NO'),
+(18, 4, 18, 150.00, 15.00, 'NO'),
+(19, 4, 19, 800.00, 12.00, 'NO');
+
+-- Catalogo 5 (Items - Subasta 5)
+INSERT INTO items_catalogo (identificador, catalogo, producto, precio_base, comision, subastado) VALUES
+(20, 5, 20, 10000.00, 15.00, 'NO'),
+(21, 5, 21, 20000.00, 10.00, 'NO'),
+(22, 5, 22,  5000.00, 12.00, 'NO'),
+(23, 5, 23,  5000.00, 12.00, 'NO'),
+(24, 5, 24,  5000.00, 12.00, 'NO');
+
+-- =============================================================
+-- ASISTENTES
+-- =============================================================
 
 INSERT INTO asistentes (identificador, cliente, subasta, numero_postor) VALUES
-(1, 3, 1, 101), (2, 4, 1, 102), (3, 5, 1, 103),
-(4, 3, 2,  51), (5, 4, 2,  52),
-(6, 5, 3, 201), (7, 3, 3, 202),
-(8, 3, 4, 301), (9, 4, 4, 302);
+-- Subasta 1
+(1, 3, 1, 101), (2, 4, 1, 102), (3, 5, 1, 103), (4, 6, 1, 104),
+-- Subasta 2
+(5, 3, 2, 101), (6, 4, 2, 102), (7, 5, 2, 103), (8, 6, 2, 104),
+-- Subasta 3
+(9, 3, 3, 101), (10, 4, 3, 102), (11, 5, 3, 103), (12, 6, 3, 104),
+-- Subasta 4
+(13, 3, 4, 101), (14, 4, 4, 102), (15, 5, 4, 103), (16, 6, 4, 104),
+-- Subasta 5
+(17, 3, 5, 101), (18, 4, 5, 102), (19, 5, 5, 103), (20, 6, 5, 104);
 
-INSERT INTO pujos (identificador, asistente, item, importe, ganador, timestamp) VALUES
-(1, 8, 29,  900000.00, 'NO', '2026-05-25 15:10:00'),
-(2, 9, 29, 1000000.00, 'NO', '2026-05-25 15:14:00'),
-(3, 8, 29, 1100000.00, 'NO', '2026-05-25 15:18:00'),
-(4, 9, 29, 1200000.00, 'NO', '2026-05-25 15:22:00'),
-(5, 8, 29, 1350000.00, 'SI', '2026-05-25 15:28:00'),
-(6, 8, 30,  550000.00, 'NO', '2026-05-25 15:40:00'),
-(7, 9, 30,  650000.00, 'NO', '2026-05-25 15:45:00'),
-(8, 8, 30,  700000.00, 'NO', '2026-05-25 15:49:00'),
-(9, 9, 30,  780000.00, 'SI', '2026-05-25 15:55:00');
-
-INSERT INTO registro_de_subasta (identificador, subasta, producto, cliente, duenio, importe, comision, costo_envio, retiro_personal) VALUES
-(1, 4, 29, 3, 2, 1350000.00, 135000.00,    0.00, 1),
-(2, 4, 30, 4, 2,  780000.00,  78000.00, 5000.00, 0);
+-- =============================================================
+-- MEDIOS DE PAGO (TODOS VERIFICADOS)
+-- =============================================================
 
 INSERT INTO medios_pago (id, cliente_id, tipo, moneda, estado, es_banca_exterior, numero_cuenta, banco, numero_tarjeta, vencimiento, monto_cheque) VALUES
-(1, 3, 'TARJETA_CREDITO',    'USD', 'VERIFICADO',             0, NULL,             NULL,          '4111-1111-1111-1111', '12/29', NULL),
-(2, 3, 'CUENTA_BANCARIA',    'ARS', 'VERIFICADO',             0, '0001-2345-6789', 'Banco Kanto', NULL,                  NULL,    NULL),
-(3, 4, 'CUENTA_BANCARIA',    'ARS', 'VERIFICADO',             0, '0002-9876-5432', 'Banco Johto', NULL,                  NULL,    NULL),
-(4, 5, 'CHEQUE_CERTIFICADO', 'ARS', 'PENDIENTE_VERIFICACION', 0, NULL,             'Banco Hoenn', NULL,                  NULL,    50000.00);
+-- Ash (3)
+(1, 3, 'TARJETA_CREDITO',    'USD', 'VERIFICADO', 0, NULL,             NULL,          '4111-1111-1111-1111', '12/29', NULL),
+(2, 3, 'CUENTA_BANCARIA',    'ARS', 'VERIFICADO', 0, '0001-2345-6789', 'Banco Kanto', NULL,                  NULL,    NULL),
+-- Misty (4)
+(3, 4, 'CUENTA_BANCARIA',    'ARS', 'VERIFICADO', 0, '0002-9876-5432', 'Banco Johto', NULL,                  NULL,    NULL),
+-- Brock (5)
+(4, 5, 'CHEQUE_CERTIFICADO', 'ARS', 'VERIFICADO', 0, NULL,             'Banco Hoenn', NULL,                  NULL,    100000.00),
+-- Test User (6)
+(5, 6, 'TARJETA_CREDITO',    'USD', 'VERIFICADO', 0, NULL,             NULL,          '4222-2222-2222-2222', '12/29', NULL),
+(6, 6, 'CUENTA_BANCARIA',    'ARS', 'VERIFICADO', 0, '0006-1234-5678', 'Banco Test',  NULL,                  NULL,    NULL),
+(7, 6, 'CHEQUE_CERTIFICADO', 'ARS', 'VERIFICADO', 0, NULL,             'Banco Test',  NULL,                  NULL,    200000.00);
+
+-- =============================================================
+-- NOTIFICACIONES INICIALES
+-- =============================================================
 
 INSERT INTO notificaciones (id, usuario_id, tipo, titulo, cuerpo, leida, fecha_creacion) VALUES
-(1, 3, 'RESULTADO_COMPRA',  '¡Ganaste la subasta!',
- 'Felicitaciones, Ash! Ganaste a Mewtwo por $1.350.000. Coordiná el retiro dentro de las próximas 48 hs.',
- 0, '2026-05-25 16:00:00'),
-(2, 4, 'RESULTADO_COMPRA',  '¡Ganaste la subasta!',
- 'Felicitaciones, Misty! Ganaste a Lugia por $780.000. Envío a Ciudad Celeste: $5.000.',
- 0, '2026-05-25 16:01:00'),
-(3, 5, 'MULTA_PENDIENTE',   'Verificación de medio de pago pendiente',
- 'Brock, tu cheque certificado (Banco Hoenn) está siendo verificado. No podrás pujar hasta que finalice.',
- 0, '2026-05-26 09:00:00'),
-(4, 3, 'ARTICULO_ACEPTADO', 'Tu puja fue registrada',
- 'Tu puja de $1.350.000 por Mewtwo (Lote 29) fue registrada. Eres el postor activo.',
- 1, '2026-05-25 15:28:00'),
-(5, 4, 'ARTICULO_ACEPTADO', 'Tu puja fue registrada',
- 'Tu puja de $780.000 por Lugia (Lote 30) fue registrada. Eres la postora activa.',
- 1, '2026-05-25 15:55:00');
+(1, 5, 'ARTICULO_ACEPTADO', 'Medio de pago verificado', 'Brock, tu cheque certificado del Banco Hoenn ha sido verificado con éxito.', 0, '2026-06-01 09:00:00'),
+(2, 6, 'ARTICULO_ACEPTADO', 'Medio de pago verificado', 'test, tus cuentas y cheque del Banco Test han sido verificados con éxito.', 0, '2026-06-01 09:01:00');

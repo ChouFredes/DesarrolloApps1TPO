@@ -163,7 +163,9 @@ export function CatalogoDetailScreen() {
     );
   }
 
-  const heroUrl = subasta?.imagenPortadaUrl ?? null;
+  const heroUrl = subasta?.imagenPortadaUrl
+    ? (subasta.imagenPortadaUrl.startsWith('/') ? `${API_BASE_URL}${subasta.imagenPortadaUrl}` : subasta.imagenPortadaUrl)
+    : null;
 
   return (
     <SafeAreaView style={styles.safe}>

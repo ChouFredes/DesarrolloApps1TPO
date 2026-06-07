@@ -128,12 +128,14 @@ interface CardProps {
 }
 
 function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: CardProps) {
-  const imgSrc = item.imagenPortadaUrl ?? '';
+  const imgSrc = item.imagenPortadaUrl
+    ? (item.imagenPortadaUrl.startsWith('/') ? `${API_BASE_URL}${item.imagenPortadaUrl}` : item.imagenPortadaUrl)
+    : '';
   const ar = useAspectRatio(imgSrc, seedAR(item.id));
   const imgH = clampH(colWidth / ar);
   const { full, short } = useCountdownBoth(item.fechaFin);
 
-  const imgs = item.imagenPortadaUrl ? [item.imagenPortadaUrl] : [];
+  const imgs = imgSrc ? [imgSrc] : [];
 
   const levelColor = LEVEL_COLORS[item.categoria] ?? '#888888';
 
