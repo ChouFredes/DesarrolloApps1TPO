@@ -50,15 +50,21 @@ export function MainNavigator() {
     <Tab.Navigator
       screenOptions={({ route }) => ({
         headerShown: false,
-        tabBarShowLabel: false,
         tabBarStyle: {
-          backgroundColor: '#EDE8E1',
-          borderTopColor: '#DDD5CA',
+          backgroundColor: '#0A1626',
+          borderTopWidth: 0.5,
+          borderTopColor: 'rgba(0,234,223,0.12)',
           height: 60,
           paddingBottom: 8,
+          paddingTop: 6,
         },
-        tabBarActiveTintColor: '#F5A623',
-        tabBarInactiveTintColor: '#8C7B6B',
+        tabBarActiveTintColor: '#00EADF',
+        tabBarInactiveTintColor: 'rgba(225,225,225,0.35)',
+        tabBarLabelStyle: {
+          fontSize: 10,
+          fontWeight: '600',
+          letterSpacing: 0.3,
+        },
         tabBarIcon: ({ focused, color, size }) => {
           const icons: Record<string, { active: string; inactive: string }> = {
             Home: { active: 'home', inactive: 'home-outline' },

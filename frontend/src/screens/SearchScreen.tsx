@@ -101,21 +101,15 @@ export function SearchScreen() {
       );
       const itemId = res.data?.itemActual?.id;
       if (itemId) {
-        navigation.navigate('Home' as any, {
-          screen: 'AuctionRoom',
-          params: {
-            subastaId: subasta.id,
-            itemId,
-            itemName: res.data.itemActual.descripcionCatalogo || subasta.titulo || 'Artículo',
-          },
-        } as any);
+        navigation.navigate('AuctionRoom', {
+          subastaId: subasta.id,
+          itemId,
+          itemName: res.data.itemActual.descripcionCatalogo || subasta.titulo || 'Artículo',
+        });
       } else {
-        navigation.navigate('Home' as any, {
-          screen: 'CatalogoDetail',
-          params: {
-            subastaId: subasta.id,
-          },
-        } as any);
+        navigation.navigate('CatalogoDetail', {
+          subastaId: subasta.id,
+        });
       }
     } catch (e: any) {
       const msg =
@@ -143,12 +137,9 @@ export function SearchScreen() {
       <TouchableOpacity
         style={styles.resultCard}
         onPress={() =>
-          navigation.navigate('Home' as any, {
-            screen: 'CatalogoDetail',
-            params: {
-              subastaId: item.id,
-            },
-          } as any)
+          navigation.navigate('CatalogoDetail', {
+            subastaId: item.id,
+          })
         }
         activeOpacity={0.85}
       >

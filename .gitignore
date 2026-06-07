@@ -1,9 +1,5 @@
 # Ignorar carpetas solicitadas
-Pokeballs/
-Stones/
-Xmove/
-berry/
-items/
+/Pokeballs/
 seed/
 ClaudeBrain/
 

@@ -22,29 +22,33 @@ import { HomeStackParamList } from '../navigation/HomeStackNavigator';
 
 // ── Warm palette ───────────────────────────────────────────────────────────
 const W = {
-  bg:       '#F4EEE8',
-  card:     '#FFFFFF',
-  surface:  '#EDE8E1',
-  text:     '#1A1201',
-  textSub:  '#8C7B6B',
-  accent:   '#F5A623',
-  border:   '#DDD5CA',
-  inactive: '#B8A898',
-  imgEmpty: '#E8E0D8',
+  bg: '#0F1F35',
+  card: '#0D1E33',
+  surface: '#0A1626',
+  text: '#E1E1E1',
+  textSub: 'rgba(225,225,225,0.5)',
+  accent: '#00EADF',
+  border: 'rgba(0,234,223,0.2)',
+  inactive: 'rgba(225,225,225,0.3)',
+  imgEmpty: '#0F2A42',
 };
 
 const LEVEL_COLORS: Record<string, string> = {
-  pokemon:           '#E74C3C',
-  maquinas_tecnicas: '#3A7BD5',
-  pociones:          '#9B59B6',
+  pokemon: '#00EADF',
+  maquinas_tecnicas: '#00EADF',
+  pociones: '#00EADF',
 };
 
-const CATEGORIAS = [
-  { key: 'todos',            label: 'Todos' },
-  { key: 'pokemon',          label: 'Pokémon' },
-  { key: 'maquinas_tecnicas',label: 'Máquinas' },
-  { key: 'pociones',         label: 'Pociones' },
-];
+const POKEBALL_BY_CATEGORY: Record<string, any> = {
+  pokemon:           require('../../assets/pokeballs/masterball.png'),
+  pociones:          require('../../assets/pokeballs/superball.png'),
+  maquinas_tecnicas: require('../../assets/pokeballs/greatball.png'),
+};
+const POKEBALL_DEFAULT = require('../../assets/pokeballs/pokeball.png');
+
+function getPokeballSource(categoria: string) {
+  return POKEBALL_BY_CATEGORY[categoria] ?? POKEBALL_DEFAULT;
+}
 
 type Subasta = {
   id: number;
@@ -57,17 +61,17 @@ type Subasta = {
 };
 
 const { width: SW } = Dimensions.get('window');
-const PAD  = 12;
-const GAP  = 8;
+const PAD = 14;
+const GAP = 12;
 const AVAIL = SW - PAD * 2 - GAP;
-const WL   = Math.floor(AVAIL * 0.56);
-const WR   = Math.floor(AVAIL * 0.44);
+const WL = Math.floor(AVAIL * 0.56);
+const WR = Math.floor(AVAIL * 0.44);
 
 const AR_SEEDS = [0.75, 0.9, 1.15, 0.65, 1.25, 0.82, 1.0, 0.7, 1.35, 0.88];
 const AR_CACHE: Record<string, number> = {};
 
-function seedAR(id: number)       { return AR_SEEDS[id % AR_SEEDS.length]; }
-function clampH(h: number)        { return Math.min(Math.max(Math.round(h), 90), 300); }
+function seedAR(id: number) { return AR_SEEDS[id % AR_SEEDS.length]; }
+function clampH(h: number) { return Math.min(Math.max(Math.round(h), 90), 300); }
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'HomeMain'>;
 
@@ -77,24 +81,28 @@ function useAspectRatio(url: string, fallback: number): number {
   const [ar, setAr] = useState(() => AR_CACHE[url] ?? fallback);
   useEffect(() => {
     if (!url || AR_CACHE[url] !== undefined) return;
-    Image.getSize(url, (w, h) => { if (h > 0) { AR_CACHE[url] = w / h; setAr(w / h); } }, () => {});
+    Image.getSize(url, (w, h) => { if (h > 0) { AR_CACHE[url] = w / h; setAr(w / h); } }, () => { });
   }, [url]);
   return ar;
 }
 
 function useCountdownBoth(fechaFin: string) {
-  const [t, setT] = useState({ full: '--:--:--', short: '--:--' });
+  const [t, setT] = useState({ full: '--h --m', short: '--h --m' });
   useEffect(() => {
     const tick = () => {
       const diff = new Date(fechaFin).getTime() - Date.now();
-      if (diff <= 0) { setT({ full: 'Finalizado', short: 'Fin' }); return; }
-      const h = Math.floor(diff / 3_600_000);
+      if (diff <= 0) { setT({ full: 'Finalizado', short: 'Finalizado' }); return; }
+      const totalH = Math.floor(diff / 3_600_000);
       const m = Math.floor((diff % 3_600_000) / 60_000);
-      const s = Math.floor((diff % 60_000) / 1_000);
-      setT({
-        full:  `${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`,
-        short: h >= 1 ? `${h}h ${m}m` : `${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`,
-      });
+      const d = Math.floor(totalH / 24);
+      const h = totalH % 24;
+
+      // Más de 48h → mostrar días; menos → mostrar horas totales
+      const label = d >= 2
+        ? `${d}d ${h}h`
+        : `${totalH}h ${m}m`;
+
+      setT({ full: label, short: label });
     };
     tick();
     const id = setInterval(tick, 1000);
@@ -107,11 +115,11 @@ function balanceColumns(items: Subasta[]) {
   const L: Subasta[] = [], R: Subasta[] = [];
   let lH = 0, rH = 0;
   for (const item of items) {
-    const ar     = AR_CACHE[item.imagenPortadaUrl ?? ''] ?? seedAR(item.id);
-    const lCard  = clampH(WL / ar) + 72;
-    const rCard  = clampH(WR / ar) + 64;
+    const ar = AR_CACHE[item.imagenPortadaUrl ?? ''] ?? seedAR(item.id);
+    const lCard = clampH(WL / ar) + 72;
+    const rCard = clampH(WR / ar) + 64;
     if (lH <= rH) { L.push(item); lH += lCard + GAP; }
-    else          { R.push(item); rH += rCard + GAP; }
+    else { R.push(item); rH += rCard + GAP; }
   }
   return { L, R };
 }
@@ -130,8 +138,8 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
   const imgUrl = item.imagenPortadaUrl
     ? (item.imagenPortadaUrl.startsWith('/') ? `${API_BASE_URL}${item.imagenPortadaUrl}` : item.imagenPortadaUrl)
     : '';
-  const ar     = useAspectRatio(imgUrl, seedAR(item.id));
-  const imgH   = clampH(colWidth / ar);
+  const ar = useAspectRatio(imgUrl, seedAR(item.id));
+  const imgH = clampH(colWidth / ar);
   const { full, short } = useCountdownBoth(item.fechaFin);
 
   const imgs = imgUrl ? [imgUrl] : [];
@@ -139,26 +147,26 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
   const levelColor = LEVEL_COLORS[item.categoria] ?? '#888888';
 
   const entryAnim = useRef(new Animated.Value(0)).current;
-  const kbScale   = useRef(new Animated.Value(1)).current;
+  const kbScale = useRef(new Animated.Value(1)).current;
   const kbAnimRef = useRef<Animated.CompositeAnimation | null>(null);
 
   // Ping-pong slots — no image flash on swap
   const [slotA, setSlotA] = useState(() => imgs[0] ?? '');
   const [slotB, setSlotB] = useState(() => imgs[1] ?? '');
   const [dotIdx, setDotIdx] = useState(0);
-  const fadeA      = useRef(new Animated.Value(1)).current;
-  const fadeB      = useRef(new Animated.Value(0)).current;
-  const frontIsA   = useRef(true);
-  const nextLoad   = useRef(2 % Math.max(imgs.length, 1));
+  const fadeA = useRef(new Animated.Value(1)).current;
+  const fadeB = useRef(new Animated.Value(0)).current;
+  const frontIsA = useRef(true);
+  const nextLoad = useRef(2 % Math.max(imgs.length, 1));
 
-  const timerRef   = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const startedRef = useRef(0);
   const elapsedRef = useRef(0);
   const cyclingRef = useRef(false);
 
   // Slower cycling: 6s per image instead of 4s
   const DISPLAY_MS = 6000;
-  const FADE_MS    = 650;
+  const FADE_MS = 650;
 
   const doKenBurns = useCallback((duration: number) => {
     kbAnimRef.current?.stop();
@@ -168,16 +176,16 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
     kbAnimRef.current.start();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  const cycleRef = useRef<() => void>(() => {});
+  const cycleRef = useRef<() => void>(() => { });
   cycleRef.current = () => {
     if (imgs.length <= 1) return;
     kbAnimRef.current?.stop();
     const aIsFront = frontIsA.current;
     const from = aIsFront ? fadeA : fadeB;
-    const to   = aIsFront ? fadeB : fadeA;
+    const to = aIsFront ? fadeB : fadeA;
     Animated.parallel([
       Animated.timing(from, { toValue: 0, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(to,   { toValue: 1, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(to, { toValue: 1, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
     ]).start(({ finished }) => {
       if (!finished) return;
       frontIsA.current = !aIsFront;
@@ -185,7 +193,7 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
       const nextIdx = nextLoad.current;
       nextLoad.current = (nextIdx + 1) % imgs.length;
       if (aIsFront) setSlotA(imgs[nextIdx]);
-      else          setSlotB(imgs[nextIdx]);
+      else setSlotB(imgs[nextIdx]);
       elapsedRef.current = 0;
       doKenBurns(DISPLAY_MS + FADE_MS);
       startedRef.current = Date.now();
@@ -232,37 +240,45 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
   return (
     <Animated.View style={[s.card, { opacity: entryAnim, transform: [{ translateY }] }]}>
       <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={{ flex: 1 }}>
-        <View style={[s.imgBox, { height: imgH }]}>
-          {imgs.length > 0 ? (
-            <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: kbScale }] }]}>
-              <Animated.Image source={{ uri: slotA }} style={[StyleSheet.absoluteFillObject, { opacity: fadeA }]} resizeMode="cover" />
-              {imgs.length > 1 && (
-                <Animated.Image source={{ uri: slotB }} style={[StyleSheet.absoluteFillObject, { opacity: fadeB }]} resizeMode="cover" />
-              )}
-            </Animated.View>
-          ) : (
-            <View style={[StyleSheet.absoluteFillObject, s.imgEmpty]}>
-              <Ionicons name="image-outline" size={26} color={W.inactive} />
-            </View>
-          )}
-          {imgs.length >= 2 && false && (
-            <View style={s.dotsRow} pointerEvents="none">
-              {imgs.slice(0, 4).map((_, i) => (
-                <View key={i} style={i === dotIdx ? s.dotOn : s.dotOff} />
-              ))}
-            </View>
-          )}
-        </View>
+        <View style={s.cardInner}>
+          <View style={[s.imgBox, { height: imgH }]}>
+            {imgs.length > 0 ? (
+              <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: kbScale }] }]}>
+                <Animated.Image source={{ uri: slotA }} style={[StyleSheet.absoluteFillObject, { opacity: fadeA }]} resizeMode="cover" />
+                {imgs.length > 1 && (
+                  <Animated.Image source={{ uri: slotB }} style={[StyleSheet.absoluteFillObject, { opacity: fadeB }]} resizeMode="cover" />
+                )}
+              </Animated.View>
+            ) : (
+              <View style={[StyleSheet.absoluteFillObject, s.imgEmpty]}>
+                <Ionicons name="image-outline" size={26} color={W.inactive} />
+              </View>
+            )}
+            {imgs.length >= 2 && false && (
+              <View style={s.dotsRow} pointerEvents="none">
+                {imgs.slice(0, 4).map((_, i) => (
+                  <View key={i} style={i === dotIdx ? s.dotOn : s.dotOff} />
+                ))}
+              </View>
+            )}
+          </View>
 
-        <View style={[s.levelBar, { backgroundColor: levelColor }]} />
+          <View style={[s.levelBar, { backgroundColor: levelColor }]} />
 
-        <View style={[s.info, compact && s.infoCompact, { borderLeftColor: levelColor }]}>
-          <Text style={[s.name, compact && s.nameSm]} numberOfLines={compact ? 1 : 2}>
-            {item.titulo}
-          </Text>
-          <Text style={[s.timerCode, compact && s.timerCodeSm]}>
-            {compact ? short : full}
-          </Text>
+          <View style={[s.info, compact && s.infoCompact]}>
+            <Image
+              source={getPokeballSource(item.categoria)}
+              style={[s.pokeballBadge, compact && s.pokeballBadgeSm]}
+            />
+            <View style={s.infoText}>
+              <Text style={[s.name, compact && s.nameSm]} numberOfLines={compact ? 1 : 2}>
+                {item.titulo}
+              </Text>
+              <Text style={[s.timerCode, compact && s.timerCodeSm]}>
+                {compact ? short : full}
+              </Text>
+            </View>
+          </View>
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -271,11 +287,10 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
 
 // ── HomeScreen ─────────────────────────────────────────────────────────────
 export function HomeScreen() {
-  const navigation  = useNavigation<NavProp>();
-  const { user }    = useAuthStore();
-  const [subastas, setSubastas]       = useState<Subasta[]>([]);
-  const [refreshing, setRefreshing]   = useState(false);
-  const [selectedCat, setSelectedCat] = useState('todos');
+  const navigation = useNavigation<NavProp>();
+  const { user } = useAuthStore();
+  const [subastas, setSubastas] = useState<Subasta[]>([]);
+  const [refreshing, setRefreshing] = useState(false);
   const [isScrolling, setIsScrolling] = useState(false);
   const { token } = useAuthStore();
 
@@ -287,7 +302,7 @@ export function HomeScreen() {
       if (!res.ok) return;
       const data = await res.json();
       setSubastas(data);
-    } catch (_) {}
+    } catch (_) { }
   }, [token]);
 
   useEffect(() => { fetchSubastas(); }, [fetchSubastas]);
@@ -302,9 +317,7 @@ export function HomeScreen() {
     : '?';
   const nombre = user?.nombre ?? 'Usuario';
 
-  const filtered = selectedCat === 'todos'
-    ? subastas
-    : subastas.filter(s => s.categoria === selectedCat);
+  const filtered = subastas;
 
   const { L: leftItems, R: rightItems } = balanceColumns(filtered);
 
@@ -319,9 +332,6 @@ export function HomeScreen() {
           <Text style={s.greetingSub}>Bienvenido de nuevo</Text>
           <Text style={s.greetingName}>¡Hola {nombre}!</Text>
         </View>
-        <View style={s.countPill}>
-          <Text style={s.countTxt}>{filtered.length}</Text>
-        </View>
       </View>
 
       {/* Search bar */}
@@ -330,38 +340,11 @@ export function HomeScreen() {
         onPress={() => navigation.getParent()?.navigate('Search' as never)}
         activeOpacity={0.8}
       >
-        <Ionicons name="search-outline" size={18} color={W.textSub} />
+        <Ionicons name="search-outline" size={18} color={'rgba(0,234,223,0.5)'} />
         <Text style={s.searchPlaceholder}>Buscar subastas...</Text>
       </TouchableOpacity>
 
-      {/* Category tabs */}
-      <ScrollView
-        horizontal
-        showsHorizontalScrollIndicator={false}
-        contentContainerStyle={s.tabsContent}
-        style={s.tabsBar}
-      >
-        {CATEGORIAS.map(cat => {
-          const active   = selectedCat === cat.key;
-          const levelCol = LEVEL_COLORS[cat.key];
-          return (
-            <TouchableOpacity
-              key={cat.key}
-              onPress={() => setSelectedCat(cat.key)}
-              activeOpacity={0.7}
-              style={s.tab}
-            >
-              {levelCol && (
-                <View style={[s.tabDot, { backgroundColor: active ? levelCol : W.inactive }]} />
-              )}
-              <Text style={[s.tabTxt, active && s.tabTxtOn]}>{cat.label}</Text>
-              {active && (
-                <View style={[s.tabLine, levelCol ? { backgroundColor: levelCol } : { backgroundColor: W.text }]} />
-              )}
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
+
 
       {/* Masonry grid */}
       <ScrollView
@@ -436,80 +419,64 @@ const s = StyleSheet.create({
     paddingTop: spacing.sm,
     paddingBottom: spacing.md,
     gap: 12,
+    backgroundColor: W.surface,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0,234,223,0.15)',
   },
   avatarCircle: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: W.accent,
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#1E3A56',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,234,223,0.4)',
   },
-  avatarText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  avatarText: { color: '#A0C4D8', fontWeight: '700', fontSize: 14 },
   greetingWrap: { flex: 1 },
-  greetingSub:  { fontSize: 11, color: W.textSub },
-  greetingName: { fontSize: 17, fontWeight: '700', color: W.text },
-  countPill: {
-    backgroundColor: W.surface,
-    borderRadius: 8,
-    paddingHorizontal: 10,
-    paddingVertical: 4,
-    borderWidth: 1,
-    borderColor: W.border,
-  },
-  countTxt: { fontSize: 13, fontWeight: '600', color: W.textSub, fontVariant: ['tabular-nums'] },
+  greetingSub: { fontSize: 11, color: W.textSub, letterSpacing: 0.5 },
+  greetingName: { fontSize: 16, fontWeight: '700', color: W.text },
+
 
   // Search
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: W.card,
+    backgroundColor: '#152C44',
     marginHorizontal: PAD,
-    marginBottom: 8,
-    borderRadius: 20,
+    marginTop: 6,
+    marginBottom: 10,
+    borderRadius: 12,
     paddingHorizontal: 14,
-    paddingVertical: 10,
+    paddingVertical: 11,
     gap: 8,
-    borderWidth: 1,
-    borderColor: W.border,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,234,223,0.2)',
   },
-  searchPlaceholder: { color: W.textSub, fontSize: 14 },
+  searchPlaceholder: { color: W.textSub, fontSize: 14, flex: 1 },
 
-  // Category tabs
-  tabsBar:     { flexGrow: 0, marginBottom: 10 },
-  tabsContent: { paddingHorizontal: PAD, gap: 4 },
-  tab: {
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    alignItems: 'center',
-    position: 'relative',
-    flexDirection: 'row',
-    gap: 5,
-  },
-  tabDot:  { width: 6, height: 6, borderRadius: 3 },
-  tabTxt:  { fontSize: 14, fontWeight: '500', color: W.inactive },
-  tabTxtOn: { color: W.text, fontWeight: '700' },
-  tabLine: {
-    position: 'absolute',
-    bottom: 2, left: 6, right: 6,
-    height: 2,
-    borderRadius: 1,
-  },
+
 
   // Grid
   gridWrap: { paddingHorizontal: PAD, paddingBottom: 40 },
-  grid:     { flexDirection: 'row' },
+  grid: { flexDirection: 'row' },
 
-  // ── Pantone card ──────────────────────────────────────────────────────────
+  // Card
   card: {
-    backgroundColor: W.card,
-    borderRadius: 3,
-    overflow: 'hidden',
-    shadowColor: '#8C6A4A',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: 'rgba(0,234,223,0.22)',
+    shadowColor: '#00EADF',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.10,
-    shadowRadius: 6,
-    elevation: 2,
+    shadowRadius: 10,
+    elevation: 4,
+  },
+  cardInner: {
+    borderRadius: 15,
+    overflow: 'hidden',
+    backgroundColor: W.card,
   },
   imgBox: {
     overflow: 'hidden',
@@ -527,39 +494,57 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
   },
-  dotOn:  { width: 14, height: 3, borderRadius: 1.5, backgroundColor: '#FFF' },
-  dotOff: { width: 4,  height: 3, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.35)' },
+  dotOn: { width: 14, height: 3, borderRadius: 1.5, backgroundColor: W.accent },
+  dotOff: { width: 4, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(0,234,223,0.25)' },
 
-  levelBar: { height: 3 },
+  levelBar: { height: 1, opacity: 0.4 },
 
   info: {
     paddingHorizontal: 10,
-    paddingTop: 9,
-    paddingBottom: 11,
+    paddingTop: 8,
+    paddingBottom: 10,
     backgroundColor: W.card,
-    borderLeftWidth: 3,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
   },
   infoCompact: {
     paddingHorizontal: 8,
-    paddingTop: 7,
-    paddingBottom: 9,
+    paddingTop: 6,
+    paddingBottom: 8,
+    gap: 6,
+  },
+  pokeballBadge: {
+    width: 28,
+    height: 28,
+    resizeMode: 'contain',
+    flexShrink: 0,
+  },
+  pokeballBadgeSm: {
+    width: 22,
+    height: 22,
+  },
+  infoText: {
+    flex: 1,
+    flexDirection: 'column',
   },
   name: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '700',
     color: W.text,
-    letterSpacing: 0.15,
-    lineHeight: 17,
+    letterSpacing: 0.1,
+    lineHeight: 16,
   },
-  nameSm: { fontSize: 11, lineHeight: 15, letterSpacing: 0.1 },
+  nameSm: { fontSize: 10, lineHeight: 14 },
   timerCode: {
-    fontSize: 9,
-    color: W.textSub,
-    letterSpacing: 0.6,
-    marginTop: 4,
+    fontSize: 10,
+    color: W.accent,
+    letterSpacing: 0.4,
+    marginTop: 2,
     fontVariant: ['tabular-nums'],
+    opacity: 0.9,
   },
-  timerCodeSm: { fontSize: 8, marginTop: 3 },
+  timerCodeSm: { fontSize: 9, marginTop: 1 },
 
   // Empty state
   empty: {
@@ -569,5 +554,5 @@ const s = StyleSheet.create({
     paddingHorizontal: spacing.xl,
   },
   emptyTitle: { fontSize: 17, fontWeight: '700', color: W.text },
-  emptyText:  { color: W.textSub, textAlign: 'center', lineHeight: 20 },
+  emptyText: { color: W.textSub, textAlign: 'center', lineHeight: 20 },
 });
