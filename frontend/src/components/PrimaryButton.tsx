@@ -1,6 +1,6 @@
 import React, { useRef } from 'react';
 import { Animated, Pressable, Text, StyleSheet, ActivityIndicator, ViewStyle } from 'react-native';
-import { colors, borderRadius, spacing } from '../theme';
+import { borderRadius, spacing } from '../theme';
 
 interface Props {
   title: string;
@@ -29,7 +29,7 @@ export function PrimaryButton({ title, onPress, loading, disabled, style }: Prop
         onPressOut={handlePressOut}
         disabled={disabled || loading}
       >
-        {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.text}>{title}</Text>}
+        {loading ? <ActivityIndicator color="#0A1626" /> : <Text style={styles.text}>{title}</Text>}
       </Pressable>
     </Animated.View>
   );
@@ -39,12 +39,17 @@ export default PrimaryButton;
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: colors.primary,
-    paddingVertical: spacing.base,
-    borderRadius: borderRadius.xl,
+    backgroundColor: '#00EADF',
+    borderRadius: 12,
+    paddingVertical: 15,
     alignItems: 'center',
     width: '100%',
   },
   disabled: { opacity: 0.5 },
-  text: { color: '#fff', fontSize: 16, fontWeight: '600' },
+  text: {
+    color: '#0A1626',
+    fontSize: 15,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
 });

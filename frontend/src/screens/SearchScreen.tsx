@@ -15,7 +15,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import axios from 'axios';
-import { colors, spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
@@ -43,7 +42,7 @@ const FILTERS = [
 ];
 
 export function SearchScreen() {
-  const navigation = useNavigation<NavProp>();
+  const navigation = useNavigation<any>();
   const { token } = useAuthStore();
   const [query, setQuery] = useState('');
   const [subastas, setSubastas] = useState<Subasta[]>([]);
@@ -101,14 +100,20 @@ export function SearchScreen() {
       );
       const itemId = res.data?.itemActual?.id;
       if (itemId) {
-        navigation.navigate('AuctionRoom', {
-          subastaId: subasta.id,
-          itemId,
-          itemName: res.data.itemActual.descripcionCatalogo || subasta.titulo || 'Artículo',
+        navigation.navigate('Home', {
+          screen: 'AuctionRoom',
+          params: {
+            subastaId: subasta.id,
+            itemId,
+            itemName: res.data.itemActual.descripcionCatalogo || subasta.titulo || 'Artículo',
+          },
         });
       } else {
-        navigation.navigate('CatalogoDetail', {
-          subastaId: subasta.id,
+        navigation.navigate('Home', {
+          screen: 'CatalogoDetail',
+          params: {
+            subastaId: subasta.id,
+          },
         });
       }
     } catch (e: any) {
@@ -137,8 +142,11 @@ export function SearchScreen() {
       <TouchableOpacity
         style={styles.resultCard}
         onPress={() =>
-          navigation.navigate('CatalogoDetail', {
-            subastaId: item.id,
+          navigation.navigate('Home', {
+            screen: 'CatalogoDetail',
+            params: {
+              subastaId: item.id,
+            },
           })
         }
         activeOpacity={0.85}
@@ -148,7 +156,7 @@ export function SearchScreen() {
             <Image source={{ uri: imageUrl }} style={styles.resultImage} />
           ) : (
             <View style={styles.resultImagePlaceholder}>
-              <Ionicons name="image-outline" size={28} color={colors.textSecondary} />
+              <Ionicons name="image-outline" size={28} color="rgba(225,225,225,0.25)" />
             </View>
           )}
         </View>
@@ -169,7 +177,7 @@ export function SearchScreen() {
           activeOpacity={0.8}
         >
           {isJoining ? (
-            <ActivityIndicator size="small" color="#fff" />
+            <ActivityIndicator size="small" color="#0A1626" />
           ) : (
             <Text style={styles.joinBtnText}>Unirte</Text>
           )}
@@ -188,20 +196,20 @@ export function SearchScreen() {
 
       {/* Search input */}
       <View style={styles.searchBar}>
-        <Ionicons name="search-outline" size={18} color={colors.textSecondary} />
+        <Ionicons name="search-outline" size={18} color="rgba(0,234,223,0.5)" />
         <TextInput
           style={styles.searchInput}
           value={query}
           onChangeText={setQuery}
           placeholder="Dueño, artista, categoría..."
-          placeholderTextColor={colors.textSecondary}
+          placeholderTextColor="rgba(225,225,225,0.35)"
           returnKeyType="search"
           autoCapitalize="none"
           autoCorrect={false}
         />
         {query.length > 0 && (
           <TouchableOpacity onPress={() => setQuery('')}>
-            <Ionicons name="close-circle" size={18} color={colors.textSecondary} />
+            <Ionicons name="close-circle" size={18} color="rgba(225,225,225,0.4)" />
           </TouchableOpacity>
         )}
       </View>
@@ -228,7 +236,7 @@ export function SearchScreen() {
       {/* Results */}
       {loading ? (
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color="#00EADF" />
         </View>
       ) : (
         <FlatList
@@ -238,7 +246,7 @@ export function SearchScreen() {
           showsVerticalScrollIndicator={false}
           ListEmptyComponent={
             <View style={styles.emptyState}>
-              <Ionicons name="search-outline" size={48} color={colors.textSecondary} />
+              <Ionicons name="search-outline" size={48} color="rgba(225,225,225,0.25)" />
               <Text style={styles.emptyText}>
                 {query ? `Sin resultados para "${query}"` : 'No hay subastas disponibles.'}
               </Text>
@@ -255,82 +263,159 @@ export function SearchScreen() {
 export default SearchScreen;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  titleBlock: { paddingHorizontal: spacing.base, paddingTop: spacing.md, paddingBottom: spacing.sm },
-  title: { fontSize: 24, fontWeight: '700', color: colors.text },
-  subtitle: { fontSize: 14, color: colors.textSecondary, marginTop: 2 },
+  safe: { flex: 1, backgroundColor: '#0F1F35' },
+
+  // Título
+  titleBlock: {
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    paddingBottom: 10,
+  },
+  title: {
+    fontSize: 24,
+    fontWeight: '700',
+    color: '#E1E1E1',
+  },
+  subtitle: {
+    fontSize: 14,
+    color: 'rgba(225,225,225,0.5)',
+    marginTop: 2,
+  },
+
+  // Search bar
   searchBar: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: colors.surface,
-    marginHorizontal: spacing.base,
-    marginBottom: spacing.md,
-    borderRadius: borderRadius.xl,
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.md,
-    gap: spacing.sm,
-    ...shadows.card,
+    backgroundColor: '#152C44',
+    marginHorizontal: 16,
+    marginBottom: 12,
+    borderRadius: 12,
+    paddingHorizontal: 14,
+    paddingVertical: 12,
+    gap: 8,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,234,223,0.2)',
   },
-  searchInput: { flex: 1, color: colors.text, fontSize: 14, padding: 0 },
+  searchInput: {
+    flex: 1,
+    color: '#E1E1E1',
+    fontSize: 14,
+    padding: 0,
+  },
+
+  // Filter pills
   filtersRow: {
     flexDirection: 'row',
-    paddingHorizontal: spacing.base,
-    marginBottom: spacing.md,
-    gap: spacing.sm,
+    paddingHorizontal: 16,
+    paddingVertical: 4,        // padding vertical para que no se corten
+    marginBottom: 12,
+    gap: 8,
   },
   filterPill: {
-    paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
-    borderRadius: borderRadius.full,
-    backgroundColor: '#E5E7EB',
+    paddingHorizontal: 16,
+    paddingVertical: 8,
+    borderRadius: 20,
+    borderWidth: 1,
+    borderColor: 'rgba(0,234,223,0.25)',
+    backgroundColor: 'transparent',
   },
-  filterPillActive: { backgroundColor: colors.primary },
-  filterPillText: { fontSize: 13, fontWeight: '500', color: colors.textSecondary },
-  filterPillTextActive: { color: '#fff', fontWeight: '600' },
+  filterPillActive: {
+    backgroundColor: '#00EADF',
+    borderColor: '#00EADF',
+  },
+  filterPillText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: 'rgba(225,225,225,0.5)',
+  },
+  filterPillTextActive: {
+    color: '#0A1626',          // texto OSCURO sobre fondo cyan — siempre
+    fontWeight: '700',
+  },
+
+  // Loading / empty
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  listContent: { paddingHorizontal: spacing.base, paddingBottom: spacing.xl },
+  emptyState: {
+    alignItems: 'center',
+    paddingTop: 60,
+    gap: 12,
+  },
+  emptyText: {
+    color: 'rgba(225,225,225,0.5)',
+    textAlign: 'center',
+    fontSize: 14,
+  },
+
+  // Lista
+  listContent: { paddingHorizontal: 16, paddingBottom: 32, paddingTop: 4 },
+  separator: { height: 10 },
+
+  // Result card
   resultCard: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
-    padding: spacing.md,
+    backgroundColor: '#0D1E33',
+    borderRadius: 14,
+    padding: 12,
     alignItems: 'center',
-    gap: spacing.md,
-    ...shadows.card,
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,234,223,0.2)',
+    shadowColor: '#00EADF',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   resultImageWrap: {
     width: 70,
     height: 70,
-    borderRadius: borderRadius.md,
+    borderRadius: 10,
     overflow: 'hidden',
-    backgroundColor: colors.border,
+    backgroundColor: '#0F2A42',
   },
   resultImage: { width: '100%', height: '100%' },
-  resultImagePlaceholder: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  resultInfo: { flex: 1, gap: 2 },
-  newBadge: {
-    alignSelf: 'flex-start',
-    backgroundColor: colors.accent,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: 6,
-    paddingVertical: 2,
-    marginBottom: 2,
-  },
-  newBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700' },
-  resultCreator: { fontSize: 11, color: colors.textSecondary },
-  resultName: { fontSize: 14, fontWeight: '600', color: colors.text },
-  resultPrice: { fontSize: 13, fontWeight: '700', color: colors.text },
-  joinBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.md,
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
-    minWidth: 64,
+  resultImagePlaceholder: {
+    flex: 1,
+    justifyContent: 'center',
     alignItems: 'center',
   },
-  joinBtnDisabled: { opacity: 0.5 },
-  joinBtnText: { color: '#fff', fontSize: 12, fontWeight: '600' },
-  separator: { height: spacing.sm },
-  emptyState: { alignItems: 'center', paddingTop: spacing.xxl, gap: spacing.md },
-  emptyText: { color: colors.textSecondary, textAlign: 'center' },
+  resultInfo: { flex: 1, gap: 2 },
+
+  // Badge "Nuevo"
+  newBadge: {
+    alignSelf: 'flex-start',
+    backgroundColor: 'rgba(0,234,223,0.15)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,234,223,0.4)',
+    borderRadius: 6,
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    marginBottom: 3,
+  },
+  newBadgeText: {
+    color: '#00EADF',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.5,
+  },
+
+  resultCreator: { fontSize: 11, color: 'rgba(225,225,225,0.45)' },
+  resultName: { fontSize: 14, fontWeight: '600', color: '#E1E1E1' },
+  resultPrice: { fontSize: 13, fontWeight: '600', color: 'rgba(225,225,225,0.6)' },
+
+  // Botón Unirte
+  joinBtn: {
+    backgroundColor: '#00EADF',
+    borderRadius: 10,
+    paddingHorizontal: 14,
+    paddingVertical: 10,
+    minWidth: 70,
+    alignItems: 'center',
+  },
+  joinBtnDisabled: { opacity: 0.4 },
+  joinBtnText: {
+    color: '#0A1626',          // texto oscuro sobre cyan
+    fontSize: 12,
+    fontWeight: '700',
+  },
 });

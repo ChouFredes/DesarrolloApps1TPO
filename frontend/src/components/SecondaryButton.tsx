@@ -1,6 +1,5 @@
 import React, { useRef } from 'react';
 import { Animated, Pressable, Text, StyleSheet, ViewStyle } from 'react-native';
-import { colors, borderRadius, spacing } from '../theme';
 
 interface Props {
   title: string;
@@ -36,13 +35,18 @@ export default SecondaryButton;
 
 const styles = StyleSheet.create({
   button: {
-    backgroundColor: colors.surface,
-    paddingVertical: spacing.base,
-    borderRadius: borderRadius.xl,
+    backgroundColor: 'transparent',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,234,223,0.4)',
+    paddingVertical: 15,
     alignItems: 'center',
     width: '100%',
-    borderWidth: 1.5,
-    borderColor: colors.primary,
   },
-  text: { color: colors.primary, fontSize: 16, fontWeight: '600' },
+  text: {
+    color: '#00EADF',
+    fontSize: 15,
+    fontWeight: '600',
+    letterSpacing: 0.5,
+  },
 });

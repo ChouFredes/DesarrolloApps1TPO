@@ -63,28 +63,11 @@ type Subasta = {
 const { width: SW } = Dimensions.get('window');
 const PAD = 14;
 const GAP = 12;
-const AVAIL = SW - PAD * 2 - GAP;
-const WL = Math.floor(AVAIL * 0.56);
-const WR = Math.floor(AVAIL * 0.44);
-
-const AR_SEEDS = [0.75, 0.9, 1.15, 0.65, 1.25, 0.82, 1.0, 0.7, 1.35, 0.88];
-const AR_CACHE: Record<string, number> = {};
-
-function seedAR(id: number) { return AR_SEEDS[id % AR_SEEDS.length]; }
-function clampH(h: number) { return Math.min(Math.max(Math.round(h), 90), 300); }
+const CARD_IMG_H = 110; // altura fija de imagen en cada card
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'HomeMain'>;
 
 // ── Hooks ──────────────────────────────────────────────────────────────────
-
-function useAspectRatio(url: string, fallback: number): number {
-  const [ar, setAr] = useState(() => AR_CACHE[url] ?? fallback);
-  useEffect(() => {
-    if (!url || AR_CACHE[url] !== undefined) return;
-    Image.getSize(url, (w, h) => { if (h > 0) { AR_CACHE[url] = w / h; setAr(w / h); } }, () => { });
-  }, [url]);
-  return ar;
-}
 
 function useCountdownBoth(fechaFin: string) {
   const [t, setT] = useState({ full: '--h --m', short: '--h --m' });
@@ -111,174 +94,87 @@ function useCountdownBoth(fechaFin: string) {
   return t;
 }
 
-function balanceColumns(items: Subasta[]) {
-  const L: Subasta[] = [], R: Subasta[] = [];
-  let lH = 0, rH = 0;
-  for (const item of items) {
-    const ar = AR_CACHE[item.imagenPortadaUrl ?? ''] ?? seedAR(item.id);
-    const lCard = clampH(WL / ar) + 72;
-    const rCard = clampH(WR / ar) + 64;
-    if (lH <= rH) { L.push(item); lH += lCard + GAP; }
-    else { R.push(item); rH += rCard + GAP; }
-  }
-  return { L, R };
-}
-
 // ── AuctionCard ────────────────────────────────────────────────────────────
 interface CardProps {
   item: Subasta;
   gIdx: number;
-  colWidth: number;
-  isScrolling: boolean;
-  compact: boolean;
   onPress: () => void;
 }
 
-function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: CardProps) {
+function AuctionCard({ item, gIdx, onPress }: CardProps) {
   const imgUrl = item.imagenPortadaUrl
-    ? (item.imagenPortadaUrl.startsWith('/') ? `${API_BASE_URL}${item.imagenPortadaUrl}` : item.imagenPortadaUrl)
+    ? (item.imagenPortadaUrl.startsWith('/')
+        ? `${API_BASE_URL}${item.imagenPortadaUrl}`
+        : item.imagenPortadaUrl)
     : '';
-  const ar = useAspectRatio(imgUrl, seedAR(item.id));
-  const imgH = clampH(colWidth / ar);
-  const { full, short } = useCountdownBoth(item.fechaFin);
 
-  const imgs = imgUrl ? [imgUrl] : [];
-
-  const levelColor = LEVEL_COLORS[item.categoria] ?? '#888888';
+  const { full } = useCountdownBoth(item.fechaFin);
+  const levelColor = LEVEL_COLORS[item.categoria] ?? '#00EADF';
 
   const entryAnim = useRef(new Animated.Value(0)).current;
-  const kbScale = useRef(new Animated.Value(1)).current;
-  const kbAnimRef = useRef<Animated.CompositeAnimation | null>(null);
-
-  // Ping-pong slots — no image flash on swap
-  const [slotA, setSlotA] = useState(() => imgs[0] ?? '');
-  const [slotB, setSlotB] = useState(() => imgs[1] ?? '');
-  const [dotIdx, setDotIdx] = useState(0);
-  const fadeA = useRef(new Animated.Value(1)).current;
-  const fadeB = useRef(new Animated.Value(0)).current;
-  const frontIsA = useRef(true);
-  const nextLoad = useRef(2 % Math.max(imgs.length, 1));
-
-  const timerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  const startedRef = useRef(0);
-  const elapsedRef = useRef(0);
-  const cyclingRef = useRef(false);
-
-  // Slower cycling: 6s per image instead of 4s
-  const DISPLAY_MS = 6000;
-  const FADE_MS = 650;
-
-  const doKenBurns = useCallback((duration: number) => {
-    kbAnimRef.current?.stop();
-    kbAnimRef.current = Animated.timing(kbScale, {
-      toValue: 1.06, duration, easing: Easing.linear, useNativeDriver: true,
-    });
-    kbAnimRef.current.start();
-  }, []); // eslint-disable-line react-hooks/exhaustive-deps
-
-  const cycleRef = useRef<() => void>(() => { });
-  cycleRef.current = () => {
-    if (imgs.length <= 1) return;
-    kbAnimRef.current?.stop();
-    const aIsFront = frontIsA.current;
-    const from = aIsFront ? fadeA : fadeB;
-    const to = aIsFront ? fadeB : fadeA;
-    Animated.parallel([
-      Animated.timing(from, { toValue: 0, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(to, { toValue: 1, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-    ]).start(({ finished }) => {
-      if (!finished) return;
-      frontIsA.current = !aIsFront;
-      setDotIdx(d => (d + 1) % imgs.length);
-      const nextIdx = nextLoad.current;
-      nextLoad.current = (nextIdx + 1) % imgs.length;
-      if (aIsFront) setSlotA(imgs[nextIdx]);
-      else setSlotB(imgs[nextIdx]);
-      elapsedRef.current = 0;
-      doKenBurns(DISPLAY_MS + FADE_MS);
-      startedRef.current = Date.now();
-      timerRef.current = setTimeout(() => cycleRef.current(), DISPLAY_MS);
-    });
-  };
 
   useEffect(() => {
     Animated.timing(entryAnim, {
-      toValue: 1, duration: 380,
-      delay: Math.min(gIdx * 55, 440),
-      easing: Easing.out(Easing.cubic), useNativeDriver: true,
-    }).start(({ finished }) => {
-      if (finished && !cyclingRef.current && imgs.length > 1) {
-        cyclingRef.current = true;
-        doKenBurns(DISPLAY_MS * 1.8);
-        startedRef.current = Date.now();
-        // Stagger: each card starts its cycle at a different time
-        const stagger = DISPLAY_MS * 1.5 + (gIdx % 8) * 750;
-        timerRef.current = setTimeout(() => cycleRef.current(), stagger);
-      }
-    });
-    return () => { if (timerRef.current) clearTimeout(timerRef.current); kbAnimRef.current?.stop(); };
+      toValue: 1,
+      duration: 350,
+      delay: Math.min(gIdx * 60, 400),
+      easing: Easing.out(Easing.cubic),
+      useNativeDriver: true,
+    }).start();
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
-  useEffect(() => {
-    if (!cyclingRef.current) return;
-    if (isScrolling) {
-      if (timerRef.current) {
-        clearTimeout(timerRef.current);
-        kbAnimRef.current?.stop();
-        elapsedRef.current += Date.now() - startedRef.current;
-      }
-    } else {
-      const rem = Math.max(0, DISPLAY_MS - elapsedRef.current);
-      doKenBurns(rem + FADE_MS);
-      startedRef.current = Date.now();
-      timerRef.current = setTimeout(() => cycleRef.current(), rem);
-    }
-  }, [isScrolling, doKenBurns]);
+  const translateY = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [16, 0] });
 
-  const translateY = entryAnim.interpolate({ inputRange: [0, 1], outputRange: [24, 0] });
+
 
   return (
     <Animated.View style={[s.card, { opacity: entryAnim, transform: [{ translateY }] }]}>
-      <TouchableOpacity onPress={onPress} activeOpacity={0.88} style={{ flex: 1 }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ flex: 1 }}>
         <View style={s.cardInner}>
-          <View style={[s.imgBox, { height: imgH }]}>
-            {imgs.length > 0 ? (
-              <Animated.View style={[StyleSheet.absoluteFillObject, { transform: [{ scale: kbScale }] }]}>
-                <Animated.Image source={{ uri: slotA }} style={[StyleSheet.absoluteFillObject, { opacity: fadeA }]} resizeMode="cover" />
-                {imgs.length > 1 && (
-                  <Animated.Image source={{ uri: slotB }} style={[StyleSheet.absoluteFillObject, { opacity: fadeB }]} resizeMode="cover" />
-                )}
-              </Animated.View>
+
+          {/* Imagen superior */}
+          <View style={s.imgBox}>
+            {imgUrl ? (
+              <Image
+                source={{ uri: imgUrl }}
+                style={StyleSheet.absoluteFillObject}
+                resizeMode="cover"
+              />
             ) : (
               <View style={[StyleSheet.absoluteFillObject, s.imgEmpty]}>
                 <Ionicons name="image-outline" size={26} color={W.inactive} />
               </View>
             )}
-            {imgs.length >= 2 && false && (
-              <View style={s.dotsRow} pointerEvents="none">
-                {imgs.slice(0, 4).map((_, i) => (
-                  <View key={i} style={i === dotIdx ? s.dotOn : s.dotOff} />
-                ))}
-              </View>
-            )}
+
           </View>
 
-          <View style={[s.levelBar, { backgroundColor: levelColor }]} />
-
-          <View style={[s.info, compact && s.infoCompact]}>
-            <Image
-              source={getPokeballSource(item.categoria)}
-              style={[s.pokeballBadge, compact && s.pokeballBadgeSm]}
-            />
-            <View style={s.infoText}>
-              <Text style={[s.name, compact && s.nameSm]} numberOfLines={compact ? 1 : 2}>
-                {item.titulo}
-              </Text>
-              <Text style={[s.timerCode, compact && s.timerCodeSm]}>
-                {compact ? short : full}
-              </Text>
+          {/* Contenido inferior */}
+          <View style={s.cardBody}>
+            {/* Pokéball + título */}
+            <View style={s.cardTitleRow}>
+              <Image
+                source={getPokeballSource(item.categoria)}
+                style={s.pokeballBadge}
+              />
+              <Text style={s.name} numberOfLines={2}>{item.titulo}</Text>
             </View>
+
+            {/* Timer */}
+            <View style={s.timerRow}>
+              <Ionicons name="time-outline" size={10} color={W.accent} />
+              <Text style={s.timerCode}>{full}</Text>
+            </View>
+
+            {/* Botón Ofertar */}
+            <TouchableOpacity
+              style={s.bidBtn}
+              onPress={onPress}
+              activeOpacity={0.75}
+            >
+              <Text style={s.bidBtnTxt}>OFERTAR</Text>
+            </TouchableOpacity>
           </View>
+
         </View>
       </TouchableOpacity>
     </Animated.View>
@@ -291,7 +187,6 @@ export function HomeScreen() {
   const { user } = useAuthStore();
   const [subastas, setSubastas] = useState<Subasta[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const [isScrolling, setIsScrolling] = useState(false);
   const { token } = useAuthStore();
 
   const fetchSubastas = useCallback(async () => {
@@ -319,8 +214,6 @@ export function HomeScreen() {
 
   const filtered = subastas;
 
-  const { L: leftItems, R: rightItems } = balanceColumns(filtered);
-
   return (
     <SafeAreaView style={s.safe}>
       {/* Header */}
@@ -346,16 +239,13 @@ export function HomeScreen() {
 
 
 
-      {/* Masonry grid */}
+      {/* Grid */}
       <ScrollView
         showsVerticalScrollIndicator={false}
         contentContainerStyle={s.gridWrap}
         refreshControl={
           <RefreshControl refreshing={refreshing} onRefresh={onRefresh} tintColor={W.accent} />
         }
-        onScrollBeginDrag={() => setIsScrolling(true)}
-        onScrollEndDrag={() => setIsScrolling(false)}
-        onMomentumScrollEnd={() => setIsScrolling(false)}
       >
         {filtered.length === 0 ? (
           <View style={s.empty}>
@@ -365,39 +255,14 @@ export function HomeScreen() {
           </View>
         ) : (
           <View style={s.grid}>
-            <View style={{ width: WL }}>
-              {leftItems.map((item, i) => (
-                <React.Fragment key={item.id}>
-                  {i > 0 && <View style={{ height: GAP }} />}
-                  <AuctionCard
-                    item={item}
-                    gIdx={i * 2}
-                    colWidth={WL}
-                    isScrolling={isScrolling}
-                    compact={false}
-                    onPress={() => navigation.navigate('CatalogoDetail', { subastaId: item.id })}
-                  />
-                </React.Fragment>
-              ))}
-            </View>
-
-            <View style={{ width: GAP }} />
-
-            <View style={{ width: WR }}>
-              {rightItems.map((item, i) => (
-                <React.Fragment key={item.id}>
-                  {i > 0 && <View style={{ height: GAP }} />}
-                  <AuctionCard
-                    item={item}
-                    gIdx={i * 2 + 1}
-                    colWidth={WR}
-                    isScrolling={isScrolling}
-                    compact
-                    onPress={() => navigation.navigate('CatalogoDetail', { subastaId: item.id })}
-                  />
-                </React.Fragment>
-              ))}
-            </View>
+            {filtered.map((item, i) => (
+              <AuctionCard
+                key={item.id}
+                item={item}
+                gIdx={i}
+                onPress={() => navigation.navigate('CatalogoDetail', { subastaId: item.id })}
+              />
+            ))}
           </View>
         )}
       </ScrollView>
@@ -458,93 +323,101 @@ const s = StyleSheet.create({
 
 
 
-  // Grid
-  gridWrap: { paddingHorizontal: PAD, paddingBottom: 40 },
-  grid: { flexDirection: 'row' },
+  // Layout del grid
+  gridWrap: { paddingHorizontal: PAD, paddingTop: 4, paddingBottom: 40 },
+  grid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: GAP,
+  },
 
-  // Card
+  // Card — ocupa mitad del ancho menos el gap
   card: {
-    borderRadius: 16,
+    width: '47.5%',     // dos columnas con gap entre medio
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: 'rgba(0,234,223,0.22)',
+    borderColor: 'rgba(0,234,223,0.2)',
     shadowColor: '#00EADF',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.10,
-    shadowRadius: 10,
-    elevation: 4,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   cardInner: {
-    borderRadius: 15,
+    borderRadius: 13,
     overflow: 'hidden',
     backgroundColor: W.card,
+    flex: 1,
   },
+
+  // Imagen superior fija
   imgBox: {
-    overflow: 'hidden',
+    height: CARD_IMG_H,
     backgroundColor: W.imgEmpty,
+    position: 'relative',
   },
   imgEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
   },
 
-  dotsRow: {
-    position: 'absolute',
-    bottom: 7, left: 0, right: 0,
-    flexDirection: 'row',
-    justifyContent: 'center',
-    gap: 4,
-  },
-  dotOn: { width: 14, height: 3, borderRadius: 1.5, backgroundColor: W.accent },
-  dotOff: { width: 4, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(0,234,223,0.25)' },
 
-  levelBar: { height: 1, opacity: 0.4 },
 
-  info: {
-    paddingHorizontal: 10,
+  // Contenido inferior
+  cardBody: {
+    paddingHorizontal: 9,
     paddingTop: 8,
     paddingBottom: 10,
-    backgroundColor: W.card,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
   },
-  infoCompact: {
-    paddingHorizontal: 8,
-    paddingTop: 6,
-    paddingBottom: 8,
+  cardTitleRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
     gap: 6,
+    marginBottom: 5,
   },
   pokeballBadge: {
-    width: 28,
-    height: 28,
+    width: 20,
+    height: 20,
     resizeMode: 'contain',
     flexShrink: 0,
-  },
-  pokeballBadgeSm: {
-    width: 22,
-    height: 22,
-  },
-  infoText: {
-    flex: 1,
-    flexDirection: 'column',
+    marginTop: 1,
   },
   name: {
+    flex: 1,
     fontSize: 12,
     fontWeight: '700',
     color: W.text,
-    letterSpacing: 0.1,
     lineHeight: 16,
+    letterSpacing: 0.1,
   },
-  nameSm: { fontSize: 10, lineHeight: 14 },
+  timerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 8,
+  },
   timerCode: {
     fontSize: 10,
     color: W.accent,
-    letterSpacing: 0.4,
-    marginTop: 2,
     fontVariant: ['tabular-nums'],
     opacity: 0.9,
   },
-  timerCodeSm: { fontSize: 9, marginTop: 1 },
+
+  // Botón Ofertar
+  bidBtn: {
+    backgroundColor: 'rgba(0,234,223,0.08)',
+    borderWidth: 1,
+    borderColor: 'rgba(0,234,223,0.3)',
+    borderRadius: 8,
+    paddingVertical: 6,
+    alignItems: 'center',
+  },
+  bidBtnTxt: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: W.accent,
+    letterSpacing: 0.8,
+  },
 
   // Empty state
   empty: {

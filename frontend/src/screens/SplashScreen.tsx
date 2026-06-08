@@ -1,7 +1,6 @@
 import React, { useEffect, useRef } from 'react';
 import { View, Text, StyleSheet, Animated } from 'react-native';
 import { MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors } from '../theme';
 
 export function SplashScreen() {
   const opacity = useRef(new Animated.Value(0.01)).current;
@@ -17,7 +16,7 @@ export function SplashScreen() {
   return (
     <View style={styles.container}>
       <Animated.View style={[styles.logo, { opacity, transform: [{ scale }] }]}>
-        <MaterialCommunityIcons name="gavel" size={48} color={colors.primary} />
+        <MaterialCommunityIcons name="gavel" size={48} color="#00EADF" />
         <View style={styles.textGroup}>
           <Text style={styles.vivo}>VIVO</Text>
           <Text style={styles.subastas}>SUBASTAS</Text>
@@ -30,9 +29,9 @@ export function SplashScreen() {
 export default SplashScreen;
 
 const styles = StyleSheet.create({
-  container: { flex: 1, backgroundColor: colors.background, justifyContent: 'center', alignItems: 'center' },
+  container: { flex: 1, backgroundColor: '#0F1F35', justifyContent: 'center', alignItems: 'center' },
   logo: { flexDirection: 'row', alignItems: 'center', gap: 12 },
   textGroup: { flexDirection: 'column' },
-  vivo: { fontSize: 32, fontWeight: '800', color: colors.primary, lineHeight: 32 },
-  subastas: { fontSize: 14, fontWeight: '600', color: colors.textSecondary, letterSpacing: 3 },
+  vivo: { fontSize: 32, fontWeight: '800', color: '#00EADF', lineHeight: 32 },
+  subastas: { fontSize: 14, fontWeight: '600', color: 'rgba(225,225,225,0.5)', letterSpacing: 3 },
 });

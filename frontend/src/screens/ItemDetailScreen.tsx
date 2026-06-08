@@ -18,7 +18,7 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
@@ -52,30 +52,23 @@ const HERO_HEIGHT = 280;
 
 // ── Countdown hook ─────────────────────────────────────────────────────────
 function useCountdown(fechaFin: string | null) {
-  const [parts, setParts] = useState({ h: '00', m: '00', s: '00', finished: false });
+  const [label, setLabel] = useState('--');
   useEffect(() => {
     if (!fechaFin) return;
     const calc = () => {
       const diff = new Date(fechaFin).getTime() - Date.now();
-      if (diff <= 0) {
-        setParts({ h: '00', m: '00', s: '00', finished: true });
-        return;
-      }
-      const h = Math.floor(diff / 3_600_000);
+      if (diff <= 0) { setLabel('Finalizado'); return; }
+      const totalH = Math.floor(diff / 3_600_000);
       const m = Math.floor((diff % 3_600_000) / 60_000);
-      const s = Math.floor((diff % 60_000) / 1_000);
-      setParts({
-        h: String(h).padStart(2, '0'),
-        m: String(m).padStart(2, '0'),
-        s: String(s).padStart(2, '0'),
-        finished: false,
-      });
+      const d = Math.floor(totalH / 24);
+      const h = totalH % 24;
+      setLabel(d >= 2 ? `${d}d ${h}h` : `${totalH}h ${m}m`);
     };
     calc();
-    const id = setInterval(calc, 1000);
+    const id = setInterval(calc, 60_000); // cada minuto alcanza con este formato
     return () => clearInterval(id);
   }, [fechaFin]);
-  return parts;
+  return label;
 }
 
 // ── ItemDetailScreen ────────────────────────────────────────────────────────
@@ -159,7 +152,7 @@ export function ItemDetailScreen() {
     return (
       <SafeAreaView style={styles.safe} edges={['top']}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color="#00EADF" />
         </View>
       </SafeAreaView>
     );
@@ -169,23 +162,11 @@ export function ItemDetailScreen() {
     <SafeAreaView style={styles.safe} edges={['top']}>
       {/* Countdown banner */}
       <View style={styles.countdownBanner}>
-        <Text style={styles.countdownLabel}>Tiempo restante</Text>
-        <View style={styles.countdownSegments}>
-          <View style={styles.countdownSeg}>
-            <Text style={styles.countdownNum}>{countdown.h}</Text>
-            <Text style={styles.countdownUnit}>H</Text>
-          </View>
-          <Text style={styles.countdownColon}>:</Text>
-          <View style={styles.countdownSeg}>
-            <Text style={styles.countdownNum}>{countdown.m}</Text>
-            <Text style={styles.countdownUnit}>M</Text>
-          </View>
-          <Text style={styles.countdownColon}>:</Text>
-          <View style={styles.countdownSeg}>
-            <Text style={styles.countdownNum}>{countdown.s}</Text>
-            <Text style={styles.countdownUnit}>S</Text>
-          </View>
+        <View style={styles.countdownLeft}>
+          <Ionicons name="time-outline" size={14} color="rgba(0,234,223,0.6)" />
+          <Text style={styles.countdownLabel}>Tiempo restante</Text>
         </View>
+        <Text style={styles.countdownValue}>{countdown}</Text>
       </View>
 
       <ScrollView
@@ -231,7 +212,7 @@ export function ItemDetailScreen() {
               />
             ) : (
               <View style={styles.heroPlaceholder}>
-                <Ionicons name="image-outline" size={64} color={colors.textSecondary} />
+                <Ionicons name="image-outline" size={64} color="rgba(225,225,225,0.4)" />
               </View>
             )}
           </Animated.View>
@@ -242,7 +223,7 @@ export function ItemDetailScreen() {
             onPress={() => navigation.goBack()}
             activeOpacity={0.8}
           >
-            <Ionicons name="arrow-back" size={20} color={colors.text} />
+            <Ionicons name="arrow-back" size={20} color="#E1E1E1" />
           </TouchableOpacity>
 
           {/* Favorite button */}
@@ -254,7 +235,7 @@ export function ItemDetailScreen() {
             <Ionicons
               name={favorited ? 'heart' : 'heart-outline'}
               size={20}
-              color={favorited ? colors.error : colors.text}
+              color={favorited ? '#FF6B6B' : 'rgba(225,225,225,0.7)'}
             />
           </TouchableOpacity>
         </View>
@@ -324,10 +305,10 @@ export function ItemDetailScreen() {
           activeOpacity={0.85}
         >
           {joining ? (
-            <ActivityIndicator color="#fff" size="small" />
+            <ActivityIndicator color="#0A1626" size="small" />
           ) : (
             <>
-              <Ionicons name="hammer-outline" size={18} color="#fff" />
+              <Ionicons name="hammer-outline" size={18} color="#0A1626" />
               <Text style={styles.offerBtnText}>Hacer oferta</Text>
             </>
           )}
@@ -340,23 +321,42 @@ export function ItemDetailScreen() {
 export default ItemDetailScreen;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: '#0F1F35' },
 
   // Countdown banner
   countdownBanner: {
-    backgroundColor: colors.primary,
+    backgroundColor: '#0A1626',
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     paddingHorizontal: spacing.base,
-    paddingVertical: spacing.sm,
+    paddingVertical: 10,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0,234,223,0.15)',
   },
-  countdownLabel: { color: 'rgba(255,255,255,0.65)', fontSize: 12, fontWeight: '500' },
-  countdownSegments: { flexDirection: 'row', alignItems: 'center', gap: 4 },
-  countdownSeg: { alignItems: 'center', minWidth: 32 },
-  countdownNum: { color: '#fff', fontSize: 20, fontWeight: '800', fontVariant: ['tabular-nums'], lineHeight: 24 },
-  countdownUnit: { color: colors.accent, fontSize: 9, fontWeight: '700' },
-  countdownColon: { color: colors.accent, fontSize: 18, fontWeight: '700', marginBottom: 8 },
+  countdownLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  countdownLabel: {
+    color: 'rgba(225,225,225,0.5)',
+    fontSize: 12,
+    fontWeight: '500',
+  },
+  countdownValue: {
+    color: '#00EADF',
+    fontSize: 16,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
+
+  // Estos quedan vacíos para no romper referencias si quedaron en JSX
+  countdownSegments: {},
+  countdownSeg: {},
+  countdownNum: {},
+  countdownUnit: {},
+  countdownColon: {},
 
   scrollContent: { paddingBottom: 0 },
 
@@ -364,7 +364,7 @@ const styles = StyleSheet.create({
   heroWrap: {
     width: '100%',
     height: HERO_HEIGHT,
-    backgroundColor: colors.border,
+    backgroundColor: '#0F2A42',
     position: 'relative',
     overflow: 'hidden',
   },
@@ -372,7 +372,7 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    backgroundColor: colors.border,
+    backgroundColor: '#0F2A42',
     height: HERO_HEIGHT,
   },
   dotsWrap: {
@@ -388,10 +388,10 @@ const styles = StyleSheet.create({
     width: 6,
     height: 6,
     borderRadius: 3,
-    backgroundColor: 'rgba(255,255,255,0.5)',
+    backgroundColor: 'rgba(255,255,255,0.3)',
   },
   dotActive: {
-    backgroundColor: colors.accent,
+    backgroundColor: '#00EADF',
     width: 18,
     borderRadius: 3,
   },
@@ -402,10 +402,11 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.card,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   heartBtn: {
     position: 'absolute',
@@ -414,23 +415,29 @@ const styles = StyleSheet.create({
     width: 36,
     height: 36,
     borderRadius: 18,
-    backgroundColor: 'rgba(255,255,255,0.9)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
-    ...shadows.card,
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
 
   // Content
   contentWrap: {
-    backgroundColor: colors.background,
-    borderTopLeftRadius: borderRadius.xl,
-    borderTopRightRadius: borderRadius.xl,
-    marginTop: -borderRadius.xl,
+    backgroundColor: '#0F1F35',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    marginTop: -20,
     paddingHorizontal: spacing.base,
     paddingTop: spacing.lg,
   },
   titleRow: { marginBottom: spacing.md },
-  itemName: { fontSize: 22, fontWeight: '800', color: colors.text, lineHeight: 28 },
+  itemName: {
+    fontSize: 22,
+    fontWeight: '800',
+    color: '#E1E1E1',
+    lineHeight: 28,
+  },
 
   // Auctioneer
   auctioneerRow: {
@@ -439,45 +446,63 @@ const styles = StyleSheet.create({
     gap: spacing.md,
     marginBottom: spacing.lg,
     padding: spacing.md,
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.md,
-    ...shadows.card,
+    backgroundColor: '#0D1E33',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,234,223,0.2)',
   },
   auctioneerAvatar: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: colors.accent,
+    backgroundColor: 'rgba(0,234,223,0.15)',
+    borderWidth: 1.5,
+    borderColor: 'rgba(0,234,223,0.4)',
     justifyContent: 'center',
     alignItems: 'center',
   },
-  auctioneerInitial: { color: '#fff', fontWeight: '700', fontSize: 16 },
-  auctioneerLabel: { fontSize: 11, color: colors.textSecondary },
-  auctioneerName: { fontSize: 14, fontWeight: '600', color: colors.text },
+  auctioneerInitial: { color: '#00EADF', fontWeight: '700', fontSize: 16 },
+  auctioneerLabel: { fontSize: 11, color: 'rgba(225,225,225,0.5)' },
+  auctioneerName: { fontSize: 14, fontWeight: '600', color: '#E1E1E1' },
 
   // Price card
   priceCard: {
     flexDirection: 'row',
-    backgroundColor: colors.surface,
-    borderRadius: borderRadius.lg,
+    backgroundColor: '#0D1E33',
+    borderRadius: 14,
     padding: spacing.base,
     marginBottom: spacing.lg,
-    ...shadows.card,
+    borderWidth: 1,
+    borderColor: 'rgba(0,234,223,0.2)',
   },
   priceItem: { flex: 1, alignItems: 'center' },
-  priceSublabel: { fontSize: 11, color: colors.textSecondary, marginBottom: 4 },
-  priceBaseValue: { fontSize: 16, fontWeight: '700', color: colors.text },
-  priceCurrentValue: { fontSize: 22, fontWeight: '800', color: colors.accent },
+  priceSublabel: { fontSize: 11, color: 'rgba(225,225,225,0.5)', marginBottom: 4 },
+  priceBaseValue: { fontSize: 16, fontWeight: '700', color: '#E1E1E1' },
+  priceCurrentValue: { fontSize: 22, fontWeight: '800', color: '#00EADF' },
   priceDivider: {
     width: 1,
-    backgroundColor: colors.border,
+    backgroundColor: 'rgba(0,234,223,0.15)',
     marginVertical: spacing.xs,
   },
 
   // Description
-  sectionLabel: { fontSize: 16, fontWeight: '700', color: colors.text, marginBottom: spacing.sm },
-  description: { fontSize: 14, color: colors.textSecondary, lineHeight: 22 },
-  readMore: { fontSize: 13, color: colors.accent, fontWeight: '600', marginTop: spacing.xs },
+  sectionLabel: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#E1E1E1',
+    marginBottom: spacing.sm,
+  },
+  description: {
+    fontSize: 14,
+    color: 'rgba(225,225,225,0.6)',
+    lineHeight: 22,
+  },
+  readMore: {
+    fontSize: 13,
+    color: '#00EADF',
+    fontWeight: '600',
+    marginTop: spacing.xs,
+  },
 
   // Bottom bar
   bottomBar: {
@@ -485,23 +510,22 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: colors.surface,
+    backgroundColor: '#0A1626',
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: spacing.base,
     paddingTop: spacing.md,
     paddingBottom: spacing.lg,
-    borderTopWidth: 1,
-    borderTopColor: colors.border,
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0,234,223,0.15)',
     gap: spacing.base,
-    ...shadows.card,
   },
   bottomPriceWrap: { flex: 1 },
-  bottomPriceLabel: { fontSize: 11, color: colors.textSecondary },
-  bottomPrice: { fontSize: 20, fontWeight: '800', color: colors.accent },
+  bottomPriceLabel: { fontSize: 11, color: 'rgba(225,225,225,0.5)' },
+  bottomPrice: { fontSize: 20, fontWeight: '800', color: '#00EADF' },
   offerBtn: {
-    backgroundColor: colors.primary,
-    borderRadius: borderRadius.xl,
+    backgroundColor: '#00EADF',
+    borderRadius: 20,
     paddingHorizontal: spacing.xl,
     paddingVertical: spacing.md,
     flexDirection: 'row',
@@ -509,8 +533,7 @@ const styles = StyleSheet.create({
     gap: spacing.sm,
     minWidth: 140,
     justifyContent: 'center',
-    ...shadows.card,
   },
   offerBtnDisabled: { opacity: 0.5 },
-  offerBtnText: { color: '#fff', fontSize: 15, fontWeight: '700' },
+  offerBtnText: { color: '#0A1626', fontSize: 15, fontWeight: '700' },
 });

@@ -7,27 +7,25 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
 import { AuthStackParamList } from '../navigation/AuthNavigator';
 import { API_BASE_URL } from '../config/api';
 
 type Nav = StackNavigationProp<AuthStackParamList, 'RegisterStep1'>;
 
-function StepBar({ current }: { current: number }) {
-  return (
-    <View style={sb.container}>
-      {[0, 1, 2].map((i) => (
-        <View key={i} style={[sb.step, i <= current ? sb.active : sb.inactive]} />
-      ))}
-    </View>
-  );
-}
-const sb = StyleSheet.create({
-  container: { flexDirection: 'row', gap: 6, marginBottom: spacing.xl },
-  step: { flex: 1, height: 4, borderRadius: 2 },
-  active: { backgroundColor: colors.primary },
-  inactive: { backgroundColor: colors.border },
-});
+const W = {
+  bg: '#0F1F35',
+  surface: '#0A1626',
+  card: '#0D1E33',
+  input: '#152C44',
+  text: '#E1E1E1',
+  textSub: 'rgba(225,225,225,0.5)',
+  accent: '#00EADF',
+  border: 'rgba(0,234,223,0.2)',
+  inactive: 'rgba(225,225,225,0.3)',
+  error: '#FF6B6B',
+};
+
 
 export function RegisterStep1Screen() {
   const navigation = useNavigation<Nav>();
@@ -69,7 +67,7 @@ export function RegisterStep1Screen() {
       Alert.alert(
         'Registro exitoso',
         'Tu usuario fue creado correctamente. Ya podés iniciar sesión.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Login') }]
+        [{ text: 'OK', onPress: () => navigation.navigate('Welcome') }]
       );
     } catch (e: any) {
       setError(e.response?.data?.detalle || e.response?.data?.mensaje || e.response?.data?.message || 'Error al registrarse');
@@ -82,9 +80,8 @@ export function RegisterStep1Screen() {
     <SafeAreaView style={styles.safe}>
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
-          <StepBar current={0} />
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-            <Ionicons name="chevron-back" size={28} color={colors.text} />
+            <Ionicons name="chevron-back" size={28} color={W.text} />
           </TouchableOpacity>
           <Text style={styles.title}>¡Nos alegra conocerte!</Text>
           <Text style={styles.subtitle}>Registrate para poder ofertar</Text>
@@ -116,18 +113,18 @@ export function RegisterStep1Screen() {
 export default RegisterStep1Screen;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: W.bg },
   container: { flexGrow: 1, padding: spacing.xl },
   back: { marginBottom: spacing.xl },
-  title: { fontSize: 24, fontWeight: '700', color: colors.text },
-  subtitle: { fontSize: 14, color: colors.textSecondary, marginTop: 4, marginBottom: spacing.xl },
-  error: { color: colors.error, fontSize: 13, marginBottom: spacing.base },
+  title: { fontSize: 24, fontWeight: '700', color: W.text },
+  subtitle: { fontSize: 14, color: W.textSub, marginTop: 4, marginBottom: spacing.xl },
+  error: { color: W.error, fontSize: 13, marginBottom: spacing.base },
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.base, gap: 10 },
   checkbox: {
     width: 22, height: 22, borderRadius: 4, borderWidth: 2,
-    borderColor: colors.accent, justifyContent: 'center', alignItems: 'center',
+    borderColor: '#00EADF', justifyContent: 'center', alignItems: 'center',
   },
-  checked: { backgroundColor: colors.accent },
-  termsText: { flex: 1, fontSize: 12, color: colors.text },
-  link: { color: colors.accent },
+  checked: { backgroundColor: '#00EADF' },
+  termsText: { flex: 1, fontSize: 12, color: W.textSub },
+  link: { color: '#00EADF' },
 });

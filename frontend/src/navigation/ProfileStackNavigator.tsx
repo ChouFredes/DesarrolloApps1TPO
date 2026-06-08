@@ -33,8 +33,21 @@ export type ProfileStackParamList = {
 const Stack = createStackNavigator<ProfileStackParamList>();
 
 export function ProfileStackNavigator() {
+  const customInterpolator = ({ current }: any) => ({
+    cardStyle: {
+      opacity: current.progress,
+    },
+  });
+
   return (
-    <Stack.Navigator screenOptions={{ headerShown: false }}>
+    <Stack.Navigator
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+        cardStyleInterpolator: customInterpolator,
+      }}
+    >
       <Stack.Screen name="ProfileMain" component={ProfileScreen} />
       <Stack.Screen name="InformacionPersonal" component={InformacionPersonalScreen} />
       <Stack.Screen name="MetodosDePago" component={MetodosDePagoScreen} />

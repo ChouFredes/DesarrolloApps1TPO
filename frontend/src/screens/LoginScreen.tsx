@@ -7,12 +7,25 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
 import { AuthStackParamList } from '../navigation/AuthNavigator';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 
 type Nav = StackNavigationProp<AuthStackParamList, 'Login'>;
+
+const W = {
+  bg: '#0F1F35',
+  surface: '#0A1626',
+  card: '#0D1E33',
+  input: '#152C44',
+  text: '#E1E1E1',
+  textSub: 'rgba(225,225,225,0.5)',
+  accent: '#00EADF',
+  border: 'rgba(0,234,223,0.2)',
+  inactive: 'rgba(225,225,225,0.3)',
+  error: '#FF6B6B',
+};
 
 export function LoginScreen() {
   const navigation = useNavigation<Nav>();
@@ -41,7 +54,7 @@ export function LoginScreen() {
       <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={styles.container} keyboardShouldPersistTaps="handled">
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
-            <Ionicons name="chevron-back" size={28} color={colors.text} />
+            <Ionicons name="chevron-back" size={28} color={W.text} />
           </TouchableOpacity>
           <Text style={styles.title}>Iniciar sesión</Text>
           <InputField label="Documento" value={documento} onChangeText={setDocumento} keyboardType="numeric" />
@@ -57,10 +70,31 @@ export function LoginScreen() {
 export default LoginScreen;
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
-  container: { flexGrow: 1, padding: spacing.xl },
-  back: { marginBottom: spacing.xl },
-  title: { fontSize: 24, fontWeight: '700', color: colors.text, marginBottom: spacing.xxl },
-  error: { color: colors.error, fontSize: 13, marginBottom: spacing.base },
-  btn: { marginTop: spacing.base },
+  safe: {
+    flex: 1,
+    backgroundColor: W.bg,
+  },
+  container: {
+    flexGrow: 1,
+    padding: spacing.xl,
+  },
+  back: {
+    marginBottom: spacing.xl,
+  },
+  title: {
+    fontSize: 26,
+    fontWeight: '700',
+    color: W.text,
+    marginBottom: spacing.xxl,
+    letterSpacing: 0.3,
+  },
+  error: {
+    color: W.error,
+    fontSize: 13,
+    marginBottom: spacing.base,
+    paddingHorizontal: 4,
+  },
+  btn: {
+    marginTop: spacing.base,
+  },
 });

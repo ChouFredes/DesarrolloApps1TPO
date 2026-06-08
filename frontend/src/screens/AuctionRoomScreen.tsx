@@ -18,7 +18,7 @@ import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import axios from 'axios';
 import { Client } from '@stomp/stompjs';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
@@ -98,13 +98,14 @@ function useCountdown(fechaFin: string | null) {
     const calc = () => {
       const diff = new Date(fechaFin).getTime() - Date.now();
       if (diff <= 0) { setTimeLeft('Finalizado'); return; }
-      const h = Math.floor(diff / 3_600_000);
+      const totalH = Math.floor(diff / 3_600_000);
       const m = Math.floor((diff % 3_600_000) / 60_000);
-      const s = Math.floor((diff % 60_000) / 1_000);
-      setTimeLeft(`${String(h).padStart(2, '0')}H ${String(m).padStart(2, '0')}M ${String(s).padStart(2, '0')}S`);
+      const d = Math.floor(totalH / 24);
+      const h = totalH % 24;
+      setTimeLeft(d >= 2 ? `${d}d ${h}h` : `${totalH}h ${m}m`);
     };
     calc();
-    const id = setInterval(calc, 1000);
+    const id = setInterval(calc, 60_000);
     return () => clearInterval(id);
   }, [fechaFin]);
   return timeLeft;
@@ -405,7 +406,7 @@ export function AuctionRoomScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={styles.centered}>
-          <ActivityIndicator size="large" color={colors.accent} />
+          <ActivityIndicator size="large" color="#00EADF" />
           <Text style={styles.loadingText}>Conectando a la subasta…</Text>
         </View>
       </SafeAreaView>
@@ -413,7 +414,7 @@ export function AuctionRoomScreen() {
   }
 
   return (
-    <SafeAreaView style={styles.safe}>
+    <SafeAreaView style={styles.safe} edges={['top', 'left', 'right']}>
       <KeyboardAvoidingView style={styles.flex} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
         <View style={styles.header}>
           <TouchableOpacity onPress={() => navigation.goBack()}><Ionicons name="arrow-back" size={24} color="#fff" /></TouchableOpacity>
@@ -466,6 +467,7 @@ export function AuctionRoomScreen() {
               value={bidAmount}
               onChangeText={setBidAmount}
               placeholder={pujaMinima !== null ? `Mín. $${pujaMinima.toLocaleString('es-AR')}` : `Mín. $${(currentPrice + 1).toLocaleString('es-AR')}`}
+              placeholderTextColor="rgba(225,225,225,0.35)"
               keyboardType="numeric"
               editable={status === 'connected'}
             />
@@ -479,7 +481,16 @@ export function AuctionRoomScreen() {
           </View>
 
           {offerStatus !== 'idle' && (
-            <Animated.View style={[styles.statusBanner, { opacity: statusFadeAnim, backgroundColor: offerStatus === 'aceptada' ? colors.success : colors.primary }]}>
+            <Animated.View style={[
+              styles.statusBanner,
+              {
+                opacity: statusFadeAnim,
+                backgroundColor: offerStatus === 'aceptada' ? '#00EADF'
+                  : offerStatus === 'invalido' ? '#FF6B6B'
+                  : offerStatus === 'superada' ? '#F5C542'
+                  : '#00EADF'
+              }
+            ]}>
               <Text style={styles.statusBannerText}>{offerMessage || 'Procesando...'}</Text>
             </Animated.View>
           )}
@@ -490,46 +501,143 @@ export function AuctionRoomScreen() {
 }
 
 const styles = StyleSheet.create({
-  safe: { flex: 1, backgroundColor: colors.background },
+  safe: { flex: 1, backgroundColor: '#0F1F35' },
   flex: { flex: 1 },
-  centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
-  loadingText: { color: colors.textSecondary, marginTop: 10 },
-  header: { backgroundColor: colors.primary, flexDirection: 'row', alignItems: 'center', padding: 15 },
+
+  centered: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: '#0F1F35',
+  },
+  loadingText: {
+    color: 'rgba(225,225,225,0.5)',
+    marginTop: 12,
+    fontSize: 14,
+  },
+
+  // Header
+  header: {
+    backgroundColor: '#0A1626',
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 15,
+    borderBottomWidth: 0.5,
+    borderBottomColor: 'rgba(0,234,223,0.15)',
+  },
   headerCenter: { flex: 1, marginLeft: 15 },
-  headerTitle: { color: '#fff', fontSize: 16, fontWeight: '700' },
-  headerTimer: { color: colors.accent, fontSize: 12 },
-  statusDot: { width: 12, height: 12, borderRadius: 6 },
-  dotGreen: { backgroundColor: '#27AE60' },
-  dotYellow: { backgroundColor: '#F5A623' },
-  dotRed: { backgroundColor: '#E74C3C' },
-  priceSection: { backgroundColor: colors.primary, paddingBottom: 30, alignItems: 'center' },
-  ofertaLabel: { color: 'rgba(255,255,255,0.7)' },
-  ofertaPrice: { color: colors.accent, fontSize: 42, fontWeight: '700' },
-  postorLabel: { color: 'rgba(255,255,255,0.6)', marginTop: 5 },
-  historySection: { flex: 1, padding: 15 },
+  headerTitle: { color: '#E1E1E1', fontSize: 16, fontWeight: '700' },
+  headerTimer: { color: '#00EADF', fontSize: 12, marginTop: 2, fontVariant: ['tabular-nums'] },
+
+  // Status dot
+  statusDot: { width: 10, height: 10, borderRadius: 5 },
+  dotGreen: { backgroundColor: '#00EADF', shadowColor: '#00EADF', shadowOffset: { width: 0, height: 0 }, shadowOpacity: 0.8, shadowRadius: 4 },
+  dotYellow: { backgroundColor: '#F5C542' },
+  dotRed: { backgroundColor: '#FF6B6B' },
+
+  // Price section
+  priceSection: {
+    backgroundColor: '#0A1626',
+    paddingVertical: 24,
+    paddingBottom: 28,
+    alignItems: 'center',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,234,223,0.1)',
+  },
+  ofertaLabel: {
+    color: 'rgba(225,225,225,0.5)',
+    fontSize: 12,
+    letterSpacing: 0.5,
+    marginBottom: 4,
+  },
+  ofertaPrice: {
+    color: '#00EADF',
+    fontSize: 46,
+    fontWeight: '800',
+    fontVariant: ['tabular-nums'],
+    letterSpacing: -1,
+  },
+  postorLabel: {
+    color: 'rgba(225,225,225,0.4)',
+    marginTop: 6,
+    fontSize: 12,
+    letterSpacing: 0.3,
+  },
+
+  // Bid history
+  historySection: {
+    flex: 1,
+    paddingHorizontal: 14,
+    paddingTop: 12,
+  },
   bidList: { paddingBottom: 20 },
-  bidRow: { flexDirection: 'row', backgroundColor: colors.surface, padding: 15, borderRadius: 10, ...shadows.card },
-  bidRowMine: { borderLeftWidth: 4, borderLeftColor: colors.accent },
-  bidPostorBadge: { backgroundColor: colors.primary, padding: 5, borderRadius: 5, minWidth: 40, alignItems: 'center' },
-  bidPostorBadgeMine: { backgroundColor: colors.accent },
-  bidPostorText: { color: '#fff', fontWeight: 'bold' },
-  bidInfo: { marginLeft: 15, flex: 1 },
-  bidAmount: { fontSize: 16, fontWeight: 'bold' },
-  bidTime: { fontSize: 12, color: colors.textSecondary },
-  bidSeparator: { height: 10 },
-  inputArea: { backgroundColor: colors.surface, borderTopWidth: 1, borderTopColor: colors.border },
+  bidRow: {
+    flexDirection: 'row',
+    backgroundColor: '#0D1E33',
+    padding: 14,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(0,234,223,0.12)',
+    alignItems: 'center',
+  },
+  bidRowMine: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#00EADF',
+    borderColor: 'rgba(0,234,223,0.3)',
+    backgroundColor: 'rgba(0,234,223,0.05)',
+  },
+  bidPostorBadge: {
+    backgroundColor: '#152C44',
+    paddingVertical: 5,
+    paddingHorizontal: 8,
+    borderRadius: 8,
+    minWidth: 44,
+    alignItems: 'center',
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,234,223,0.2)',
+  },
+  bidPostorBadgeMine: {
+    backgroundColor: 'rgba(0,234,223,0.15)',
+    borderColor: '#00EADF',
+  },
+  bidPostorText: {
+    color: '#00EADF',
+    fontWeight: '700',
+    fontSize: 12,
+  },
+  bidInfo: { marginLeft: 12, flex: 1 },
+  bidAmount: {
+    fontSize: 16,
+    fontWeight: '700',
+    color: '#E1E1E1',
+    fontVariant: ['tabular-nums'],
+  },
+  bidTime: {
+    fontSize: 11,
+    color: 'rgba(225,225,225,0.4)',
+    marginTop: 2,
+  },
+  bidSeparator: { height: 8 },
+
+  // Input area
+  inputArea: {
+    backgroundColor: '#0A1626',
+    borderTopWidth: 0.5,
+    borderTopColor: 'rgba(0,234,223,0.15)',
+    paddingBottom: 8,
+  },
   quickBidsRow: {
     flexDirection: 'row',
     justifyContent: 'space-around',
-    paddingHorizontal: 15,
+    paddingHorizontal: 14,
     paddingTop: 12,
     gap: 8,
   },
   quickBidBtn: {
     flex: 1,
-    backgroundColor: colors.primary + '15',
+    backgroundColor: 'rgba(0,234,223,0.07)',
     borderWidth: 1,
-    borderColor: colors.primary + '30',
+    borderColor: 'rgba(0,234,223,0.25)',
     borderRadius: 20,
     paddingVertical: 8,
     alignItems: 'center',
@@ -537,15 +645,52 @@ const styles = StyleSheet.create({
   quickBidBtnText: {
     fontSize: 11,
     fontWeight: '600',
-    color: colors.primary,
+    color: '#00EADF',
   },
-  inputBar: { flexDirection: 'row', padding: 15, gap: 10 },
-  bidInput: { flex: 1, backgroundColor: colors.background, borderRadius: 25, paddingHorizontal: 20, height: 50, borderWidth: 1, borderColor: colors.border },
-  pujarBtn: { backgroundColor: colors.primary, borderRadius: 25, paddingHorizontal: 25, justifyContent: 'center' },
-  pujarBtnDisabled: { opacity: 0.5 },
-  pujarBtnText: { color: '#fff', fontWeight: 'bold' },
-  statusBanner: { padding: 10, alignItems: 'center' },
-  statusBannerText: { color: '#fff', fontWeight: 'bold' }
+  inputBar: {
+    flexDirection: 'row',
+    padding: 14,
+    gap: 10,
+  },
+  bidInput: {
+    flex: 1,
+    backgroundColor: '#152C44',
+    borderRadius: 25,
+    paddingHorizontal: 20,
+    height: 50,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,234,223,0.2)',
+    color: '#E1E1E1',
+    fontSize: 15,
+  },
+  pujarBtn: {
+    backgroundColor: '#00EADF',
+    borderRadius: 25,
+    paddingHorizontal: 28,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pujarBtnDisabled: { opacity: 0.4 },
+  pujarBtnText: {
+    color: '#0A1626',
+    fontWeight: '800',
+    fontSize: 15,
+    letterSpacing: 0.3,
+  },
+
+  // Status banner
+  statusBanner: {
+    marginHorizontal: 14,
+    marginBottom: 8,
+    padding: 10,
+    borderRadius: 10,
+    alignItems: 'center',
+  },
+  statusBannerText: {
+    color: '#0A1626',
+    fontWeight: '700',
+    fontSize: 13,
+  },
 });
 
 export default AuctionRoomScreen;

@@ -33,21 +33,24 @@ interface CatalogoItem {
 }
 
 const D = {
-  bg:      '#F4EEE8',
-  card:    '#FFFFFF',
-  surface: '#EDE8E1',
-  text:    '#1A1201',
-  textSub: '#8C7B6B',
-  accent:  '#F5A623',
-  border:  '#DDD5CA',
+  bg:      '#0F1F35',
+  card:    '#0D1E33',
+  surface: '#0A1626',
+  text:    '#E1E1E1',
+  textSub: 'rgba(225,225,225,0.5)',
+  accent:  '#00EADF',
+  border:  'rgba(0,234,223,0.2)',
 };
 
 const LEVEL_COLORS: Record<string, string> = {
-  comun: '#888888',
-  especial: '#3A7BD5',
-  plata: '#B0B8C1',
-  oro: '#E8A020',
-  platino: '#9B59B6',
+  comun:    '#00EADF',
+  especial: '#00EADF',
+  plata:    '#00EADF',
+  oro:      '#00EADF',
+  platino:  '#00EADF',
+  pokemon:          '#00EADF',
+  maquinas_tecnicas:'#00EADF',
+  pociones:         '#00EADF',
 };
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'CatalogoDetail'>;
@@ -61,10 +64,11 @@ function useCountdown(fechaFin: string) {
     const calc = () => {
       const diff = new Date(fechaFin).getTime() - Date.now();
       if (diff <= 0) { setTimeLeft('Finalizado'); return; }
-      const h = Math.floor(diff / 3_600_000);
+      const totalH = Math.floor(diff / 3_600_000);
       const m = Math.floor((diff % 3_600_000) / 60_000);
-      const s = Math.floor((diff % 60_000) / 1_000);
-      setTimeLeft(`${String(h).padStart(2,'0')}:${String(m).padStart(2,'0')}:${String(s).padStart(2,'0')}`);
+      const d = Math.floor(totalH / 24);
+      const h = totalH % 24;
+      setTimeLeft(d >= 2 ? `${d}d ${h}h` : `${totalH}h ${m}m`);
     };
     calc();
     const id = setInterval(calc, 1000);
@@ -157,7 +161,7 @@ export function CatalogoDetailScreen() {
     return (
       <SafeAreaView style={styles.safe}>
         <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center' }}>
-          <ActivityIndicator size="large" color={D.accent} />
+          <ActivityIndicator size="large" color="#00EADF" />
         </View>
       </SafeAreaView>
     );
@@ -252,7 +256,7 @@ const styles = StyleSheet.create({
   heroImage: { width: '100%', height: '100%' },
   heroOverlay: {
     ...StyleSheet.absoluteFillObject,
-    backgroundColor: 'rgba(0,0,0,0.45)',
+    backgroundColor: 'rgba(0,0,0,0.35)',
   },
   backBtn: {
     position: 'absolute',
@@ -261,46 +265,68 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: 'rgba(0,0,0,0.42)',
+    backgroundColor: 'rgba(0,0,0,0.5)',
     justifyContent: 'center',
     alignItems: 'center',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.15)',
   },
   catBadge: {
     position: 'absolute',
     top: spacing.base,
     right: spacing.base,
-    borderRadius: borderRadius.sm,
-    paddingHorizontal: spacing.sm,
-    paddingVertical: 4,
+    borderRadius: 20,
+    paddingHorizontal: spacing.md,
+    paddingVertical: 6,
+    backgroundColor: 'rgba(0,234,223,0.15)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,234,223,0.4)',
   },
-  catBadgeText: { color: '#fff', fontSize: 10, fontWeight: '700', letterSpacing: 0.8 },
+  catBadgeText: {
+    color: '#000000',
+    fontSize: 10,
+    fontWeight: '700',
+    letterSpacing: 0.8,
+  },
   timerBadge: {
     position: 'absolute',
-    bottom: spacing.base,
+    bottom: 30,
     right: spacing.base,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    backgroundColor: 'rgba(0,0,0,0.6)',
-    borderRadius: borderRadius.full,
+    backgroundColor: 'rgba(0,0,0,0.65)',
+    borderRadius: 20,
     paddingHorizontal: spacing.md,
     paddingVertical: 6,
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,234,223,0.25)',
   },
-  timerText: { color: D.accent, fontSize: 13, fontWeight: '700', fontVariant: ['tabular-nums'] },
+  timerText: {
+    color: '#00EADF',
+    fontSize: 13,
+    fontWeight: '700',
+    fontVariant: ['tabular-nums'],
+  },
 
   // Level bar
-  levelBar: { height: 3 },
+  levelBar: { height: 2, opacity: 0.5 },
 
-  // Info card — dark surface
+  // Info card
   infoCard: {
     backgroundColor: D.card,
     marginHorizontal: spacing.base,
     marginTop: -spacing.xl,
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     padding: spacing.base,
     gap: spacing.sm,
     borderWidth: 1,
-    borderColor: D.border,
+    borderColor: 'rgba(0,234,223,0.2)',
+    shadowColor: '#00EADF',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
   catalogoNombre: { fontSize: 20, fontWeight: '800', color: D.text },
   subastadorRow: { flexDirection: 'row', alignItems: 'center', gap: spacing.xs },
@@ -308,7 +334,7 @@ const styles = StyleSheet.create({
   subastadorText: { fontSize: 13, color: D.textSub },
   catalogoDesc: { fontSize: 13, color: D.textSub, lineHeight: 20 },
 
-  // Section
+  // Section header
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -319,38 +345,55 @@ const styles = StyleSheet.create({
   },
   sectionTitle: { fontSize: 17, fontWeight: '700', color: D.text },
   countBadge: {
-    borderRadius: borderRadius.full,
-    width: 24,
-    height: 24,
-    justifyContent: 'center',
-    alignItems: 'center',
+    borderRadius: 20,
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    backgroundColor: 'rgba(0,234,223,0.12)',
+    borderWidth: 0.5,
+    borderColor: 'rgba(0,234,223,0.35)',
   },
-  countText: { color: '#fff', fontSize: 12, fontWeight: '700' },
+  countText: { color: '#000000', fontSize: 12, fontWeight: '700' },
 
   // Item rows
   itemRow: {
     flexDirection: 'row',
     backgroundColor: D.card,
     marginHorizontal: spacing.base,
-    borderRadius: borderRadius.lg,
+    borderRadius: 14,
     overflow: 'hidden',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: D.border,
+    borderColor: 'rgba(0,234,223,0.2)',
+    shadowColor: '#00EADF',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.06,
+    shadowRadius: 6,
+    elevation: 2,
   },
   itemImage: { width: 110, height: 110 },
   itemInfo: { flex: 1, padding: spacing.md, gap: 4 },
-  itemNombre: { fontSize: 15, fontWeight: '700', color: D.text },
+  itemNombre: { fontSize: 14, fontWeight: '700', color: D.text, lineHeight: 19 },
   itemDesc: { fontSize: 12, color: D.textSub, lineHeight: 17 },
-  itemPriceRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-end', marginTop: spacing.xs },
+  itemPriceRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'flex-end',
+    marginTop: spacing.xs,
+  },
   priceLabel: { fontSize: 10, color: D.textSub, marginBottom: 1 },
-  priceBase: { fontSize: 13, fontWeight: '600', color: D.text },
+  priceBase: { fontSize: 14, fontWeight: '700', color: '#FFFFFF' },
   ofertaWrap: { alignItems: 'flex-end' },
   ofertaPrice: { fontSize: 14, fontWeight: '700', color: D.accent },
   chevron: { paddingRight: spacing.sm },
 
   separator: { height: spacing.md },
 
-  empty: { alignItems: 'center', paddingTop: 60, gap: spacing.md, paddingHorizontal: spacing.xl },
+  // Empty / loading
+  empty: {
+    alignItems: 'center',
+    paddingTop: 60,
+    gap: spacing.md,
+    paddingHorizontal: spacing.xl,
+  },
   emptyText: { fontSize: 15, color: D.textSub, textAlign: 'center' },
 });
