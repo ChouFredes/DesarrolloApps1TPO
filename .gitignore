@@ -2,6 +2,10 @@
 /Pokeballs/
 seed/
 ClaudeBrain/
+berry/
+items/
+Stones/
+Xmove/
 
 # Ignorar binarios de compilación del backend
 backend/target/
