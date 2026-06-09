@@ -20,19 +20,19 @@ import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
 
 const DARK = {
-  bg:       '#F4EEE8',
-  card:     '#FFFFFF',
-  text:     '#1A1201',
-  textSub:  '#8C7B6B',
-  accent:   '#F5A623',
+  bg: '#F4EEE8',
+  card: '#FFFFFF',
+  text: '#1A1201',
+  textSub: '#8C7B6B',
+  accent: '#F5A623',
   inactive: '#B8A898',
 };
 
 // Pantone-inspired level colors — the "chip" accent for each tier
 const LEVEL_COLORS: Record<string, string> = {
-  pokemon:           '#E74C3C',
+  pokemon: '#E74C3C',
   maquinas_tecnicas: '#3A7BD5',
-  pociones:          '#9B59B6',
+  pociones: '#9B59B6',
 };
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'Catalogo'>;
@@ -49,10 +49,10 @@ interface Subasta {
 }
 
 const CATEGORIAS = [
-  { key: 'todos',            label: 'Todos' },
-  { key: 'pokemon',          label: 'Pokémon' },
-  { key: 'maquinas_tecnicas',label: 'Máquinas' },
-  { key: 'pociones',         label: 'Pociones' },
+  { key: 'todos', label: 'Todos' },
+  { key: 'pokemon', label: 'Pokémon' },
+  { key: 'maquinas_tecnicas', label: 'Máquinas' },
+  { key: 'pociones', label: 'Pociones' },
 ];
 
 const { width: SW } = Dimensions.get('window');
@@ -77,7 +77,7 @@ function useAspectRatio(url: string, fallback: number): number {
     Image.getSize(
       url,
       (w, h) => { if (h > 0) { AR_CACHE[url] = w / h; setAr(w / h); } },
-      () => {},
+      () => { },
     );
   }, [url]);
   return ar;
@@ -178,18 +178,18 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
   }, []); // eslint-disable-line react-hooks/exhaustive-deps
 
   // cycleRef pattern — closure always reads latest state/refs
-  const cycleRef = useRef<() => void>(() => {});
+  const cycleRef = useRef<() => void>(() => { });
   cycleRef.current = () => {
     if (imgs.length <= 1) return;
     kbAnimRef.current?.stop();
 
     const aIsFront = frontIsA.current;
     const fromFade = aIsFront ? fadeA : fadeB;
-    const toFade   = aIsFront ? fadeB : fadeA;
+    const toFade = aIsFront ? fadeB : fadeA;
 
     Animated.parallel([
       Animated.timing(fromFade, { toValue: 0, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
-      Animated.timing(toFade,   { toValue: 1, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+      Animated.timing(toFade, { toValue: 1, duration: FADE_MS, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
     ]).start(({ finished }) => {
       if (!finished) return;
 
@@ -203,7 +203,7 @@ function AuctionCard({ item, gIdx, colWidth, isScrolling, compact, onPress }: Ca
       const nextIdx = nextLoadIdx.current;
       nextLoadIdx.current = (nextIdx + 1) % imgs.length;
       if (aIsFront) setSlotA(imgs[nextIdx]);
-      else          setSlotB(imgs[nextIdx]);
+      else setSlotB(imgs[nextIdx]);
 
       elapsedRef.current = 0;
       doKenBurns(DISPLAY_MS + FADE_MS);
@@ -553,8 +553,8 @@ const s = StyleSheet.create({
     justifyContent: 'center',
     gap: 4,
   },
-  dotOn:  { width: 14, height: 3, borderRadius: 1.5, backgroundColor: '#FFF' },
-  dotOff: { width: 4,  height: 3, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.3)' },
+  dotOn: { width: 14, height: 3, borderRadius: 1.5, backgroundColor: '#FFF' },
+  dotOff: { width: 4, height: 3, borderRadius: 1.5, backgroundColor: 'rgba(255,255,255,0.3)' },
 
   // Level accent bar between image and info
   levelBar: {

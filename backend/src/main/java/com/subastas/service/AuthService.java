@@ -7,7 +7,9 @@ import com.subastas.dto.response.ActivacionResponse;
 import com.subastas.dto.response.LoginResponse;
 import com.subastas.dto.response.RegistroResponse;
 import com.subastas.entity.Cliente;
+import com.subastas.entity.Duenio;
 import com.subastas.entity.Pais;
+import com.subastas.entity.Persona;
 import com.subastas.entity.RefreshToken;
 import com.subastas.entity.TokenActivacion;
 import com.subastas.entity.enums.CategoriaCliente;
@@ -18,6 +20,7 @@ import com.subastas.exception.ResourceNotFoundException;
 import com.subastas.exception.UnauthorizedException;
 import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.PaisRepository;
+import com.subastas.repository.PersonaRepository;
 import com.subastas.repository.RefreshTokenRepository;
 import com.subastas.repository.TokenActivacionRepository;
 import com.subastas.security.JwtUtil;
@@ -36,6 +39,7 @@ import java.util.UUID;
 public class AuthService {
 
     private final ClienteRepository clienteRepository;
+    private final PersonaRepository personaRepository;
     private final PaisRepository paisRepository;
     private final TokenActivacionRepository tokenActivacionRepository;
     private final RefreshTokenRepository refreshTokenRepository;
@@ -45,31 +49,42 @@ public class AuthService {
 
     @Transactional
     public RegistroResponse registrarPaso1(RegistroPostorPaso1Request request) {
-        if (clienteRepository.existsByDocumento(request.documento())) {
+        if (personaRepository.existsByDocumento(request.documento())) {
             throw new BusinessException("Ya existe un usuario registrado con el documento: " + request.documento());
         }
 
         Pais pais = paisRepository.findById(request.paisId().longValue())
                 .orElseThrow(() -> new ResourceNotFoundException("Pais", "id", request.paisId()));
 
-        Cliente cliente = new Cliente();
-        cliente.setDocumento(request.documento());
-        cliente.setNombre(request.nombre());
-        cliente.setApellido(request.apellido());
-        cliente.setDireccion(request.direccion());
-        cliente.setPais(pais);
-        cliente.setAdmitido("si");
-        cliente.setEstado(EstadoPersona.activo);
-        cliente.setCategoria(CategoriaCliente.comun);
-        cliente.setPassword(passwordEncoder.encode(request.password()));
+        Persona persona;
+        if ("duenio".equalsIgnoreCase(request.tipoUsuario()) || "vendedor".equalsIgnoreCase(request.tipoUsuario())) {
+            Duenio duenio = new Duenio();
+            duenio.setVerificacionFinanciera("aprobado");
+            duenio.setVerificacionJudicial("aprobado");
+            persona = duenio;
+        } else {
+            Cliente cliente = new Cliente();
+            cliente.setPais(pais);
+            cliente.setAdmitido("no"); // pending validation
+            cliente.setCategoria(CategoriaCliente.comun);
+            persona = cliente;
+        }
 
-        Cliente saved = clienteRepository.save(cliente);
-        log.info("Registro completado para documento: {}, id: {}", request.documento(), saved.getId());
+        persona.setDocumento(request.documento());
+        persona.setNombre(request.nombre());
+        persona.setApellido(request.apellido());
+        persona.setDireccion(request.direccion());
+        persona.setEstado(EstadoPersona.activo);
+        persona.setPassword(passwordEncoder.encode(request.password()));
+
+        Persona saved = personaRepository.save(persona);
+        log.info("Registro completado para documento: {}, tipo: {}, id: {}", 
+                request.documento(), request.tipoUsuario(), saved.getId());
 
         return new RegistroResponse(
                 saved.getId(),
                 "COMPLETADO",
-                "Usuario registrado y activado con éxito."
+                "Usuario registrado con éxito."
         );
     }
 
@@ -109,34 +124,45 @@ public class AuthService {
 
     @Transactional
     public LoginResponse login(LoginRequest request) {
-        Cliente cliente = clienteRepository.findByDocumento(request.documento())
+        Persona persona = personaRepository.findByDocumento(request.documento())
                 .orElseThrow(() -> new UnauthorizedException("Credenciales inválidas"));
 
-        if (cliente.getPassword() == null || !passwordEncoder.matches(request.password(), cliente.getPassword())) {
+        if (persona.getPassword() == null || !passwordEncoder.matches(request.password(), persona.getPassword())) {
             throw new UnauthorizedException("Credenciales inválidas");
         }
 
-        if (cliente.getEstado() != EstadoPersona.activo) {
+        if (persona.getEstado() != EstadoPersona.activo) {
             throw new ForbiddenException("Cuenta suspendida");
         }
 
-        if (!"si".equalsIgnoreCase(cliente.getAdmitido())) {
-            throw new ForbiddenException("Cuenta pendiente de verificación");
+        String categoria = null;
+        String admitido = "si";
+
+        if (persona.getDocumento() != null && persona.getDocumento().equals("1")) {
+            categoria = "admin";
+            if (persona instanceof Cliente cliente) {
+                admitido = cliente.getAdmitido();
+            }
+        } else if (persona instanceof Cliente cliente) {
+            categoria = cliente.getCategoria().name();
+            admitido = cliente.getAdmitido();
+        } else if (persona instanceof Duenio) {
+            categoria = "vendedor";
         }
 
-        String accessToken = jwtUtil.generateAccessToken(cliente);
-        String refreshTokenStr = jwtUtil.generateRefreshToken(cliente.getId());
+        String accessToken = jwtUtil.generateAccessToken(persona);
+        String refreshTokenStr = jwtUtil.generateRefreshToken(persona.getId());
 
         RefreshToken refreshToken = new RefreshToken();
-        refreshToken.setUsuario(cliente);
+        refreshToken.setUsuario(persona);
         refreshToken.setToken(refreshTokenStr);
         refreshToken.setExpiraEn(LocalDateTime.now().plusDays(7));
         refreshToken.setInvalidado(false);
         refreshTokenRepository.save(refreshToken);
 
-        log.info("Login exitoso para usuario id: {}, documento: {}", cliente.getId(), cliente.getDocumento());
+        log.info("Login exitoso para usuario id: {}, documento: {}", persona.getId(), persona.getDocumento());
 
-        return new LoginResponse(accessToken, refreshTokenStr, cliente.getId(), cliente.getNombre(), cliente.getApellido(), cliente.getCategoria().name());
+        return new LoginResponse(accessToken, refreshTokenStr, persona.getId(), persona.getNombre(), persona.getApellido(), categoria, admitido);
     }
 
     @Transactional

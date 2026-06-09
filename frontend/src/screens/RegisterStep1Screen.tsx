@@ -35,6 +35,7 @@ export function RegisterStep1Screen() {
   const [pais, setPais] = useState('');
   const [dni, setDni] = useState('');
   const [password, setPassword] = useState('');
+  const [role, setRole] = useState<'cliente' | 'duenio'>('cliente');
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -62,6 +63,7 @@ export function RegisterStep1Screen() {
         fotoDniFrente: 'frente_placeholder',
         fotoDniDorso: 'dorso_placeholder',
         password,
+        tipoUsuario: role,
       };
       await axios.post(`${API_BASE_URL}/auth/registro/paso1`, body);
       Alert.alert(
@@ -91,6 +93,28 @@ export function RegisterStep1Screen() {
           <InputField label="Domicilio" value={domicilio} onChangeText={setDomicilio} />
           <InputField label="País" value={pais} onChangeText={setPais} />
           <InputField label="DNI" value={dni} onChangeText={setDni} keyboardType="numeric" />
+          
+          <Text style={styles.label}>Quiero registrarme como:</Text>
+          <View style={styles.roleRow}>
+            <TouchableOpacity
+              style={[styles.roleBtn, role === 'cliente' && styles.roleBtnActive]}
+              onPress={() => setRole('cliente')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="cart-outline" size={18} color={role === 'cliente' ? '#0A1626' : W.text} />
+              <Text style={[styles.roleBtnTxt, role === 'cliente' && styles.roleBtnTxtActive]}>Comprador</Text>
+            </TouchableOpacity>
+
+            <TouchableOpacity
+              style={[styles.roleBtn, role === 'duenio' && styles.roleBtnActive]}
+              onPress={() => setRole('duenio')}
+              activeOpacity={0.8}
+            >
+              <Ionicons name="briefcase-outline" size={18} color={role === 'duenio' ? '#0A1626' : W.text} />
+              <Text style={[styles.roleBtnTxt, role === 'duenio' && styles.roleBtnTxtActive]}>Vendedor</Text>
+            </TouchableOpacity>
+          </View>
+
           <InputField label="Contraseña" value={password} onChangeText={setPassword} isPassword />
           {error ? <Text style={styles.error}>{error}</Text> : null}
           <PrimaryButton title="Registrate" onPress={handleRegister} loading={loading} />
@@ -119,6 +143,41 @@ const styles = StyleSheet.create({
   title: { fontSize: 24, fontWeight: '700', color: W.text },
   subtitle: { fontSize: 14, color: W.textSub, marginTop: 4, marginBottom: spacing.xl },
   error: { color: W.error, fontSize: 13, marginBottom: spacing.base },
+  label: {
+    color: W.textSub,
+    fontSize: 14,
+    marginBottom: spacing.xs,
+    paddingHorizontal: 4,
+  },
+  roleRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: spacing.md,
+  },
+  roleBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: W.input,
+    borderWidth: 1,
+    borderColor: W.border,
+    borderRadius: 8,
+    paddingVertical: 12,
+  },
+  roleBtnActive: {
+    backgroundColor: W.accent,
+    borderColor: W.accent,
+  },
+  roleBtnTxt: {
+    color: W.text,
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  roleBtnTxtActive: {
+    color: '#0A1626',
+  },
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.base, gap: 10 },
   checkbox: {
     width: 22, height: 22, borderRadius: 4, borderWidth: 2,

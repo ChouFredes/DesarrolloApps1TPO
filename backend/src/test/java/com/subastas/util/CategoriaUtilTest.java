@@ -24,13 +24,15 @@ class CategoriaUtilTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void categoriasPermitidas_comun_retornaTodasLasCategorias() {
+    void categoriasPermitidas_comun_retornaCategoriasLimitadas() {
         List<CategoriaSubasta> resultado = CategoriaUtil.categoriasPermitidas(CategoriaCliente.comun);
 
         assertNotNull(resultado);
-        // Current implementation: all categories are allowed for every client tier
-        assertEquals(CategoriaSubasta.values().length, resultado.size());
-        assertTrue(resultado.containsAll(List.of(CategoriaSubasta.values())));
+        assertTrue(resultado.contains(CategoriaSubasta.pociones));
+        assertTrue(resultado.contains(CategoriaSubasta.otros));
+        assertFalse(resultado.contains(CategoriaSubasta.maquinas_tecnicas));
+        assertFalse(resultado.contains(CategoriaSubasta.pokemon));
+        assertFalse(resultado.contains(CategoriaSubasta.arte));
     }
 
     @Test
@@ -43,11 +45,14 @@ class CategoriaUtilTest {
     }
 
     @Test
-    void categoriasPermitidas_oro_retornaTodasLasCategorias() {
+    void categoriasPermitidas_oro_noRetornaCategoriasSuperiores() {
         List<CategoriaSubasta> resultado = CategoriaUtil.categoriasPermitidas(CategoriaCliente.oro);
 
         assertNotNull(resultado);
-        assertFalse(resultado.isEmpty());
+        assertTrue(resultado.contains(CategoriaSubasta.pokemon));
+        assertTrue(resultado.contains(CategoriaSubasta.electronica));
+        assertFalse(resultado.contains(CategoriaSubasta.arte));
+        assertFalse(resultado.contains(CategoriaSubasta.joyas));
     }
 
     // -----------------------------------------------------------------------
@@ -55,11 +60,11 @@ class CategoriaUtilTest {
     // -----------------------------------------------------------------------
 
     @Test
-    void puedeAcceder_comun_cualquierCategoria_retornaTrue() {
-        // Current implementation always returns true regardless of client/subasta category
-        assertTrue(CategoriaUtil.puedeAcceder(CategoriaCliente.comun, CategoriaSubasta.arte));
-        assertTrue(CategoriaUtil.puedeAcceder(CategoriaCliente.comun, CategoriaSubasta.joyas));
-        assertTrue(CategoriaUtil.puedeAcceder(CategoriaCliente.comun, CategoriaSubasta.inmuebles));
+    void puedeAcceder_comun_soloNivelCero() {
+        assertTrue(CategoriaUtil.puedeAcceder(CategoriaCliente.comun, CategoriaSubasta.pociones));
+        assertTrue(CategoriaUtil.puedeAcceder(CategoriaCliente.comun, CategoriaSubasta.otros));
+        assertFalse(CategoriaUtil.puedeAcceder(CategoriaCliente.comun, CategoriaSubasta.maquinas_tecnicas));
+        assertFalse(CategoriaUtil.puedeAcceder(CategoriaCliente.comun, CategoriaSubasta.arte));
     }
 
     @Test
@@ -73,12 +78,10 @@ class CategoriaUtilTest {
     }
 
     @Test
-    void puedeAcceder_oro_todasLasCategorias_retornaTrue() {
-        for (CategoriaSubasta cat : CategoriaSubasta.values()) {
-            assertTrue(
-                    CategoriaUtil.puedeAcceder(CategoriaCliente.oro, cat),
-                    "oro deberia poder acceder a categoria: " + cat
-            );
-        }
+    void puedeAcceder_oro_excluyeNivelCuatro() {
+        assertTrue(CategoriaUtil.puedeAcceder(CategoriaCliente.oro, CategoriaSubasta.pokemon));
+        assertTrue(CategoriaUtil.puedeAcceder(CategoriaCliente.oro, CategoriaSubasta.electronica));
+        assertFalse(CategoriaUtil.puedeAcceder(CategoriaCliente.oro, CategoriaSubasta.arte));
+        assertFalse(CategoriaUtil.puedeAcceder(CategoriaCliente.oro, CategoriaSubasta.joyas));
     }
 }

@@ -9,5 +9,7 @@ public record UsuarioResponse(
         String estado,
         String categoria,
         String admitido,
-        String pais
+        String pais,
+        String email,
+        String telefono
 ) {}

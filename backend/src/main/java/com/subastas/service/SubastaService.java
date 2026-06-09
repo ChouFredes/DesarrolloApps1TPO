@@ -42,11 +42,21 @@ public class SubastaService {
 
     @Transactional(readOnly = true)
     public List<SubastaResponse> obtenerAbiertasParaCliente(Long clienteId) {
+        return obtenerAbiertasParaCliente(clienteId, false);
+    }
+
+    @Transactional(readOnly = true)
+    public List<SubastaResponse> obtenerAbiertasParaCliente(Long clienteId, boolean todas) {
         Cliente cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", "id", clienteId));
 
-        List<CategoriaSubasta> categoriasPermitidas = CategoriaUtil.categoriasPermitidas(cliente.getCategoria());
-        List<Subasta> subastas = subastaRepository.findAbiertasConCategoriasPermitidas(categoriasPermitidas);
+        List<Subasta> subastas;
+        if (todas) {
+            subastas = subastaRepository.findByEstado(com.subastas.entity.enums.EstadoSubasta.abierta);
+        } else {
+            List<CategoriaSubasta> categoriasPermitidas = CategoriaUtil.categoriasPermitidas(cliente.getCategoria());
+            subastas = subastaRepository.findAbiertasConCategoriasPermitidas(categoriasPermitidas);
+        }
 
         List<Long> ids = subastas.stream().map(Subasta::getId).toList();
         Map<Long, Long> countPorSubasta = itemCatalogoRepository.countBySubastaIds(ids);
@@ -130,10 +140,6 @@ public class SubastaService {
 
         Cliente cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", "id", clienteId));
-
-        if (subasta.getCategoria() != null && !CategoriaUtil.puedeAcceder(cliente.getCategoria(), subasta.getCategoria())) {
-            throw new ForbiddenException("No tenés acceso a esta subasta");
-        }
 
         String nombreSubastador = null;
         String matriculaSubastador = null;

@@ -42,10 +42,32 @@ interface SubastaDetalle {
   fechaFin: string | null;
   subastador: string | null;
   mayorOfertaActual: number | null;
+  categoria?: string;
 }
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'ItemDetail'>;
 type RouteProps = RouteProp<HomeStackParamList, 'ItemDetail'>;
+
+const CLIENT_LEVELS: Record<string, number> = {
+  comun: 0,
+  especial: 1,
+  plata: 2,
+  oro: 3,
+  platino: 4,
+};
+
+const SUBASTA_LEVELS: Record<string, number> = {
+  pociones: 0,
+  otros: 0,
+  maquinas_tecnicas: 1,
+  pokemon: 2,
+  electronica: 3,
+  vehiculos: 3,
+  arte: 4,
+  antiguedades: 4,
+  joyas: 4,
+  inmuebles: 4,
+};
 
 const { width } = Dimensions.get('window');
 const HERO_HEIGHT = 280;
@@ -76,7 +98,7 @@ export function ItemDetailScreen() {
   const navigation = useNavigation<NavProp>();
   const route = useRoute<RouteProps>();
   const { itemId, subastaId } = route.params;
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
 
   const [item, setItem] = useState<ItemDetalle | null>(null);
   const [subasta, setSubasta] = useState<SubastaDetalle | null>(null);
@@ -124,6 +146,30 @@ export function ItemDetailScreen() {
   }, [loading, imageFade, contentSlide, contentOpacity]);
 
   const handleMakeOffer = () => {
+    if (user?.admitido !== 'si') {
+      Alert.alert(
+        'Cuenta pendiente de validación',
+        'Tu cuenta está en proceso de revisión. Una vez que sea validada por un vendedor, podrás realizar ofertas.',
+        [{ text: 'Entendido' }]
+      );
+      return;
+    }
+
+    const clientCategory = user?.categoria?.toLowerCase() || 'comun';
+    const subastaCategory = subasta?.categoria?.toLowerCase();
+
+    if (subastaCategory) {
+      const clientLevel = CLIENT_LEVELS[clientCategory] ?? 0;
+      const subastaLevel = SUBASTA_LEVELS[subastaCategory] ?? 0;
+      if (clientLevel < subastaLevel) {
+        Alert.alert(
+          'Acceso restringido',
+          'Lamentablemente esta subasta está por encima de tu categoría',
+          [{ text: 'Entendido' }]
+        );
+        return;
+      }
+    }
     setJoining(true);
     setTimeout(() => {
       setJoining(false);

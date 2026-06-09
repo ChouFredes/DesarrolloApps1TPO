@@ -34,6 +34,12 @@ public abstract class Persona {
     @Enumerated(EnumType.STRING)
     private EstadoPersona estado;
 
+    @Column(name = "email")
+    private String email;
+
+    @Column(name = "telefono")
+    private String telefono;
+
     @Column(name = "password")
     private String password;
 }

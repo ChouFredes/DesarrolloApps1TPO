@@ -40,8 +40,8 @@ export function LoginScreen() {
     setLoading(true); setError('');
     try {
       const res = await axios.post(`${API_BASE_URL}/auth/login`, { documento, password });
-      const { accessToken, refreshToken, usuarioId, nombre, apellido, categoria } = res.data;
-      login(accessToken, refreshToken, { id: usuarioId, nombre, apellido, categoria });
+      const { accessToken, refreshToken, usuarioId, nombre, apellido, categoria, admitido } = res.data;
+      login(accessToken, refreshToken, { id: usuarioId, nombre, apellido, categoria, admitido });
     } catch (e: any) {
       setError(e.response?.data?.detalle || e.response?.data?.mensaje || e.response?.data?.message || 'Credenciales incorrectas');
     } finally {

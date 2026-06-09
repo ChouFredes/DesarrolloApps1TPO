@@ -5,6 +5,7 @@ interface User {
   nombre: string;
   apellido: string;
   categoria: string;
+  admitido?: string;
 }
 
 interface AuthState {

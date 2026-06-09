@@ -30,9 +30,9 @@ INSERT INTO duenios (identificador, verificacion_financiera, verificacion_judici
 (2, 'aprobado', 'aprobado');
 
 INSERT INTO clientes (identificador, admitido, categoria, numero_pais) VALUES
-(3, 'SI', 'platino',  1),
-(4, 'SI', 'oro',      1),
-(5, 'SI', 'especial', 1),
+(3, 'NO', 'platino',  1),
+(4, 'NO', 'oro',      1),
+(5, 'NO', 'especial', 1),
 (6, 'SI', 'platino',  1);
 
 -- =============================================================

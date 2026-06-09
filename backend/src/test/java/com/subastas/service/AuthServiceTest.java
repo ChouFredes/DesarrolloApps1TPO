@@ -6,6 +6,7 @@ import com.subastas.dto.response.LoginResponse;
 import com.subastas.dto.response.RegistroResponse;
 import com.subastas.entity.Cliente;
 import com.subastas.entity.Pais;
+import com.subastas.entity.Persona;
 import com.subastas.entity.RefreshToken;
 import com.subastas.entity.TokenActivacion;
 import com.subastas.entity.enums.CategoriaCliente;
@@ -15,6 +16,7 @@ import com.subastas.exception.ForbiddenException;
 import com.subastas.exception.UnauthorizedException;
 import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.PaisRepository;
+import com.subastas.repository.PersonaRepository;
 import com.subastas.repository.RefreshTokenRepository;
 import com.subastas.repository.TokenActivacionRepository;
 import com.subastas.security.JwtUtil;
@@ -36,6 +38,9 @@ class AuthServiceTest {
 
     @Mock
     private ClienteRepository clienteRepository;
+
+    @Mock
+    private PersonaRepository personaRepository;
 
     @Mock
     private PaisRepository paisRepository;
@@ -65,7 +70,7 @@ class AuthServiceTest {
     private RegistroPostorPaso1Request buildPaso1Request(String documento) {
         return new RegistroPostorPaso1Request(
                 documento, "Juan", "Perez", "Calle 123", 1,
-                "foto_frente.jpg", "foto_dorso.jpg", "Pokeball1!"
+                "foto_frente.jpg", "foto_dorso.jpg", "Pokeball1!", "cliente"
         );
     }
 
@@ -91,11 +96,11 @@ class AuthServiceTest {
     void registrarPaso1_documentoYaExiste_lanzaBusinessException() {
         RegistroPostorPaso1Request request = buildPaso1Request("12345678");
 
-        when(clienteRepository.existsByDocumento("12345678")).thenReturn(true);
+        when(personaRepository.existsByDocumento("12345678")).thenReturn(true);
 
         assertThrows(BusinessException.class, () -> authService.registrarPaso1(request));
 
-        verify(clienteRepository, never()).save(any());
+        verify(personaRepository, never()).save(any());
     }
 
     @Test
@@ -108,17 +113,17 @@ class AuthServiceTest {
         Cliente savedCliente = buildCliente("87654321", EstadoPersona.activo, "si",
                 CategoriaCliente.comun, "encoded_pwd");
 
-        when(clienteRepository.existsByDocumento("87654321")).thenReturn(false);
+        when(personaRepository.existsByDocumento("87654321")).thenReturn(false);
         when(paisRepository.findById(1L)).thenReturn(Optional.of(pais));
         when(passwordEncoder.encode("Pokeball1!")).thenReturn("encoded_pwd");
-        when(clienteRepository.save(any(Cliente.class))).thenReturn(savedCliente);
+        when(personaRepository.save(any(Persona.class))).thenReturn(savedCliente);
 
         RegistroResponse response = authService.registrarPaso1(request);
 
         assertNotNull(response);
         assertEquals("COMPLETADO", response.estado());
         assertEquals(1L, response.usuarioId());
-        verify(clienteRepository).save(any(Cliente.class));
+        verify(personaRepository).save(any(Persona.class));
     }
 
     // -----------------------------------------------------------------------
@@ -132,7 +137,7 @@ class AuthServiceTest {
         Cliente cliente = buildCliente("12345678", EstadoPersona.activo, "si",
                 CategoriaCliente.comun, "$2a$12$hashedpassword");
 
-        when(clienteRepository.findByDocumento("12345678")).thenReturn(Optional.of(cliente));
+        when(personaRepository.findByDocumento("12345678")).thenReturn(Optional.of(cliente));
         when(passwordEncoder.matches("wrongPassword", "$2a$12$hashedpassword")).thenReturn(false);
 
         assertThrows(UnauthorizedException.class, () -> authService.login(request));
@@ -147,7 +152,7 @@ class AuthServiceTest {
         Cliente cliente = buildCliente("12345678", EstadoPersona.inactivo, "si",
                 CategoriaCliente.comun, "$2a$12$hashedpassword");
 
-        when(clienteRepository.findByDocumento("12345678")).thenReturn(Optional.of(cliente));
+        when(personaRepository.findByDocumento("12345678")).thenReturn(Optional.of(cliente));
         when(passwordEncoder.matches("correctPassword", "$2a$12$hashedpassword")).thenReturn(true);
 
         ForbiddenException ex = assertThrows(ForbiddenException.class,
@@ -164,7 +169,7 @@ class AuthServiceTest {
         Cliente cliente = buildCliente("12345678", EstadoPersona.activo, "si",
                 CategoriaCliente.comun, "$2a$12$hashedpassword");
 
-        when(clienteRepository.findByDocumento("12345678")).thenReturn(Optional.of(cliente));
+        when(personaRepository.findByDocumento("12345678")).thenReturn(Optional.of(cliente));
         when(passwordEncoder.matches("correctPassword", "$2a$12$hashedpassword")).thenReturn(true);
         when(jwtUtil.generateAccessToken(cliente)).thenReturn("access-token-xyz");
         when(jwtUtil.generateRefreshToken(1L)).thenReturn("refresh-token-xyz");

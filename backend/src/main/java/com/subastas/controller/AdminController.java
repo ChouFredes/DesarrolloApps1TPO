@@ -125,4 +125,13 @@ public class AdminController {
         MultaResponse multa = multaService.generarMulta(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(multa);
     }
+
+    @PostMapping("/usuarios/validar-dni")
+    public ResponseEntity<Map<String, String>> validarPorDni(
+            @RequestParam String documento,
+            @RequestParam String categoria) {
+        log.info("POST /admin/usuarios/validar-dni — documento={}, categoria={}", documento, categoria);
+        adminService.validarPorDni(documento, categoria);
+        return ResponseEntity.ok(Map.of("mensaje", "Usuario validado con éxito"));
+    }
 }

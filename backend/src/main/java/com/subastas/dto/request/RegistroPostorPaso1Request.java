@@ -11,5 +11,6 @@ public record RegistroPostorPaso1Request(
         @NotNull Integer paisId,
         @NotBlank String fotoDniFrente,
         @NotBlank String fotoDniDorso,
-        @NotBlank String password
+        @NotBlank String password,
+        @NotBlank String tipoUsuario
 ) {}
