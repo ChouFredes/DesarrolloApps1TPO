@@ -2,6 +2,7 @@ package com.subastas.controller;
 
 import com.subastas.dto.request.GenerarMultaRequest;
 import com.subastas.dto.response.MultaResponse;
+import com.subastas.dto.response.VendedorPendienteResponse;
 import com.subastas.service.AdminService;
 import com.subastas.service.MultaService;
 import jakarta.validation.Valid;
@@ -12,6 +13,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.math.BigDecimal;
+import java.util.List;
 import java.util.Map;
 
 @Slf4j
@@ -45,6 +47,29 @@ public class AdminController {
         log.info("PUT /admin/usuarios/{}/categoria — {}", id, categoria);
         adminService.cambiarCategoriaUsuario(id, categoria);
         return ResponseEntity.ok(Map.of("mensaje", "Categoría actualizada"));
+    }
+
+    @GetMapping("/vendedores/pendientes")
+    public ResponseEntity<List<VendedorPendienteResponse>> vendedoresPendientes() {
+        log.info("GET /admin/vendedores/pendientes");
+        return ResponseEntity.ok(adminService.listarVendedoresPendientes());
+    }
+
+    @PostMapping("/vendedores/{id}/aprobar")
+    public ResponseEntity<Map<String, String>> aprobarVendedor(
+            @PathVariable Long id,
+            @RequestBody Map<String, String> body) {
+        String categoria = body.getOrDefault("categoria", "comun");
+        log.info("POST /admin/vendedores/{}/aprobar — categoria={}", id, categoria);
+        adminService.aprobarVendedor(id, categoria);
+        return ResponseEntity.ok(Map.of("mensaje", "Vendedor aprobado"));
+    }
+
+    @PostMapping("/vendedores/{id}/rechazar")
+    public ResponseEntity<Map<String, String>> rechazarVendedor(@PathVariable Long id) {
+        log.info("POST /admin/vendedores/{}/rechazar", id);
+        adminService.rechazarVendedor(id);
+        return ResponseEntity.ok(Map.of("mensaje", "Vendedor rechazado"));
     }
 
     @PostMapping("/mediosPago/{id}/verificar")
@@ -124,5 +149,14 @@ public class AdminController {
         log.info("POST /admin/multas — clienteId={}", request.clienteId());
         MultaResponse multa = multaService.generarMulta(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(multa);
+    }
+
+    @PostMapping("/usuarios/validar-dni")
+    public ResponseEntity<Map<String, String>> validarPorDni(
+            @RequestParam String documento,
+            @RequestParam String categoria) {
+        log.info("POST /admin/usuarios/validar-dni — documento={}, categoria={}", documento, categoria);
+        adminService.validarPorDni(documento, categoria);
+        return ResponseEntity.ok(Map.of("mensaje", "Usuario validado con éxito"));
     }
 }

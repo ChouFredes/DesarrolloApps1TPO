@@ -1,9 +1,20 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import {
+  View,
+  Text,
+  StyleSheet,
+  TouchableOpacity,
+  KeyboardAvoidingView,
+  Platform,
+  ScrollView,
+  Image,
+  Alert,
+} from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import axios from 'axios';
 import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
@@ -11,7 +22,7 @@ import { spacing } from '../theme';
 import { AuthStackParamList } from '../navigation/AuthNavigator';
 import { API_BASE_URL } from '../config/api';
 
-type Nav = StackNavigationProp<AuthStackParamList, 'RegisterStep1'>;
+type Nav = StackNavigationProp<AuthStackParamList, 'RegisterVendedor'>;
 
 const W = {
   bg: '#0F1F35',
@@ -26,8 +37,7 @@ const W = {
   error: '#FF6B6B',
 };
 
-
-export function RegisterStep1Screen() {
+export function RegisterVendedorScreen() {
   const navigation = useNavigation<Nav>();
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
@@ -35,6 +45,8 @@ export function RegisterStep1Screen() {
   const [pais, setPais] = useState('');
   const [dni, setDni] = useState('');
   const [password, setPassword] = useState('');
+  const [fotoUri, setFotoUri] = useState<string | null>(null);
+  const [fotoDataUrl, setFotoDataUrl] = useState<string | null>(null);
   const [accepted, setAccepted] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
@@ -45,33 +57,63 @@ export function RegisterStep1Screen() {
     if (clean.includes('spain') || clean.includes('españa') || clean.includes('espana')) return 3;
     if (clean.includes('brasil') || clean.includes('brazil')) return 4;
     if (clean.includes('francia') || clean.includes('france')) return 5;
-    return 1; // Default to Argentina (1)
+    return 1; // Default Argentina
+  };
+
+  const pickFoto = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Permiso requerido', 'Necesitamos acceso a tu galería para adjuntar la foto.');
+      return;
+    }
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      quality: 0.5,
+      base64: true,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const asset = result.assets[0];
+      setFotoUri(asset.uri);
+      if (asset.base64) {
+        setFotoDataUrl(`data:image/jpeg;base64,${asset.base64}`);
+      }
+    }
   };
 
   const handleRegister = async () => {
-    if (!nombre || !apellido || !domicilio || !pais || !dni || !password) { setError('Completá todos los campos'); return; }
-    if (!accepted) { setError('Aceptá los términos y condiciones'); return; }
-    setLoading(true); setError('');
+    if (!nombre || !apellido || !domicilio || !pais || !dni || !password) {
+      setError('Completá todos los campos');
+      return;
+    }
+    if (!fotoDataUrl) {
+      setError('Adjuntá la foto que acredita tu categoría');
+      return;
+    }
+    if (!accepted) {
+      setError('Aceptá los términos y condiciones');
+      return;
+    }
+    setLoading(true);
+    setError('');
     try {
-      const body = {
+      await axios.post(`${API_BASE_URL}/auth/registro/vendedor`, {
         nombre,
         apellido,
         direccion: domicilio,
         paisId: getPaisId(pais),
         documento: dni,
-        fotoDniFrente: 'frente_placeholder',
-        fotoDniDorso: 'dorso_placeholder',
         password,
-        tipoUsuario: 'cliente',
-      };
-      await axios.post(`${API_BASE_URL}/auth/registro/paso1`, body);
-      Alert.alert(
-        'Registro exitoso',
-        'Tu usuario fue creado correctamente. Ya podés iniciar sesión.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Welcome') }]
-      );
+        fotoAcreditacion: fotoDataUrl,
+      });
+      navigation.navigate('VendedorPending');
     } catch (e: any) {
-      setError(e.response?.data?.detalle || e.response?.data?.mensaje || e.response?.data?.message || 'Error al registrarse');
+      setError(
+        e.response?.data?.detalle ||
+          e.response?.data?.mensaje ||
+          e.response?.data?.message ||
+          'Error al registrarse'
+      );
     } finally {
       setLoading(false);
     }
@@ -84,8 +126,10 @@ export function RegisterStep1Screen() {
           <TouchableOpacity onPress={() => navigation.goBack()} style={styles.back}>
             <Ionicons name="chevron-back" size={28} color={W.text} />
           </TouchableOpacity>
-          <Text style={styles.title}>¡Nos alegra conocerte!</Text>
-          <Text style={styles.subtitle}>Registrate para poder ofertar</Text>
+          <Text style={styles.title}>Registro de vendedor</Text>
+          <Text style={styles.subtitle}>
+            Cargá tus datos y la foto que acredita tu categoría. Un administrador verificará tu cuenta.
+          </Text>
           <View style={{ height: spacing.xl }} />
           <InputField label="Ingresá tu nombre" value={nombre} onChangeText={setNombre} />
           <InputField label="Ingresá tu apellido" value={apellido} onChangeText={setApellido} />
@@ -93,8 +137,29 @@ export function RegisterStep1Screen() {
           <InputField label="País" value={pais} onChangeText={setPais} />
           <InputField label="DNI" value={dni} onChangeText={setDni} keyboardType="numeric" />
           <InputField label="Contraseña" value={password} onChangeText={setPassword} isPassword />
+
+          <Text style={styles.label}>Foto de acreditación de categoría</Text>
+          <TouchableOpacity style={styles.fotoBox} onPress={pickFoto} activeOpacity={0.8}>
+            {fotoUri ? (
+              <>
+                <Image source={{ uri: fotoUri }} style={styles.fotoPreview} resizeMode="cover" />
+                <View style={styles.fotoEditBadge}>
+                  <Ionicons name="camera" size={16} color="#0A1626" />
+                </View>
+              </>
+            ) : (
+              <View style={styles.fotoEmpty}>
+                <Ionicons name="cloud-upload-outline" size={32} color={W.accent} />
+                <Text style={styles.fotoEmptyText}>Tocá para subir la foto</Text>
+                <Text style={styles.fotoEmptyHint}>
+                  Certificado, credencial o comprobante de tu categoría de vendedor
+                </Text>
+              </View>
+            )}
+          </TouchableOpacity>
+
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <PrimaryButton title="Registrate" onPress={handleRegister} loading={loading} />
+          <PrimaryButton title="Enviar registro" onPress={handleRegister} loading={loading} />
           <TouchableOpacity style={styles.termsRow} onPress={() => setAccepted(!accepted)}>
             <View style={[styles.checkbox, accepted && styles.checked]}>
               {accepted && <Ionicons name="checkmark" size={14} color="#fff" />}
@@ -105,53 +170,53 @@ export function RegisterStep1Screen() {
               <Text style={styles.link}>condiciones</Text>.
             </Text>
           </TouchableOpacity>
-
-          <TouchableOpacity
-            style={styles.sellerLink}
-            onPress={() => navigation.navigate('RegisterVendedor')}
-            activeOpacity={0.7}
-          >
-            <Ionicons name="briefcase-outline" size={16} color={W.accent} />
-            <Text style={styles.sellerLinkText}>
-              ¿Querés vender? <Text style={styles.link}>Registrate como vendedor</Text>
-            </Text>
-          </TouchableOpacity>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
   );
 }
 
-export default RegisterStep1Screen;
+export default RegisterVendedorScreen;
 
 const styles = StyleSheet.create({
   safe: { flex: 1, backgroundColor: W.bg },
   container: { flexGrow: 1, padding: spacing.xl },
   back: { marginBottom: spacing.xl },
   title: { fontSize: 24, fontWeight: '700', color: W.text },
-  subtitle: { fontSize: 14, color: W.textSub, marginTop: 4, marginBottom: spacing.xl },
-  error: { color: W.error, fontSize: 13, marginBottom: spacing.base },
+  subtitle: { fontSize: 14, color: W.textSub, marginTop: 4 },
   label: {
     color: W.textSub,
     fontSize: 14,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.sm,
     paddingHorizontal: 4,
   },
-  sellerLink: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginTop: spacing.xl,
-    paddingVertical: 12,
+  fotoBox: {
+    borderRadius: 12,
     borderWidth: 1,
     borderColor: W.border,
-    borderRadius: 8,
+    backgroundColor: W.input,
+    overflow: 'hidden',
+    marginBottom: spacing.base,
   },
-  sellerLinkText: {
-    fontSize: 13,
-    color: W.textSub,
+  fotoEmpty: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: spacing.xxl,
+    paddingHorizontal: spacing.xl,
+    gap: 6,
   },
+  fotoEmptyText: { color: W.text, fontSize: 14, fontWeight: '600' },
+  fotoEmptyHint: { color: W.textSub, fontSize: 12, textAlign: 'center' },
+  fotoPreview: { width: '100%', height: 180 },
+  fotoEditBadge: {
+    position: 'absolute',
+    right: 10,
+    bottom: 10,
+    backgroundColor: '#00EADF',
+    borderRadius: 16,
+    padding: 6,
+  },
+  error: { color: W.error, fontSize: 13, marginBottom: spacing.base },
   termsRow: { flexDirection: 'row', alignItems: 'flex-start', marginTop: spacing.base, gap: 10 },
   checkbox: {
     width: 22, height: 22, borderRadius: 4, borderWidth: 2,

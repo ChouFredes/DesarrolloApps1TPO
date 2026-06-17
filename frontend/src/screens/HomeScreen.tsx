@@ -10,11 +10,17 @@ import {
   RefreshControl,
   Image,
   Dimensions,
+  Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
+import * as Notifications from 'expo-notifications';
+import * as Device from 'expo-device';
+import Constants from 'expo-constants';
 import { Ionicons } from '@expo/vector-icons';
-import { useNavigation } from '@react-navigation/native';
+import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
+import { useFonts, PressStart2P_400Regular } from '@expo-google-fonts/press-start-2p';
+import { LinearGradient } from 'expo-linear-gradient';
 import { spacing } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
@@ -40,14 +46,97 @@ const LEVEL_COLORS: Record<string, string> = {
 };
 
 const POKEBALL_BY_CATEGORY: Record<string, any> = {
-  pokemon:           require('../../assets/pokeballs/masterball.png'),
-  pociones:          require('../../assets/pokeballs/superball.png'),
+  pokemon: require('../../assets/pokeballs/masterball.png'),
+  pociones: require('../../assets/pokeballs/superball.png'),
   maquinas_tecnicas: require('../../assets/pokeballs/greatball.png'),
 };
 const POKEBALL_DEFAULT = require('../../assets/pokeballs/pokeball.png');
+const ROTOM_IMG = require('../../assets/pokeballs/rotom.png');
+const CARD_IMG_H = 110; // altura fija de imagen en cada card
+const SCAN_H = Math.floor(CARD_IMG_H * 0.35); // altura concreta para el scanline (38px)
 
 function getPokeballSource(categoria: string) {
   return POKEBALL_BY_CATEGORY[categoria] ?? POKEBALL_DEFAULT;
+}
+
+// ── ScanlineOverlay ────────────────────────────────────────────────────────
+// opacity fade-in/out: evita el clip abrupto sin necesitar overflow:hidden
+function ScanlineOverlay() {
+  const scanY = useRef(new Animated.Value(-1)).current;
+
+  useEffect(() => {
+    let active = true;
+    const runAnimation = () => {
+      if (!active) return;
+      scanY.setValue(-1);
+      Animated.sequence([
+        Animated.timing(scanY, {
+          toValue: 1,
+          duration: 2800,
+          easing: Easing.linear,
+          useNativeDriver: true,
+        }),
+        Animated.delay(1200),
+      ]).start((result) => {
+        if (result.finished && active) {
+          runAnimation();
+        }
+      });
+    };
+
+    runAnimation();
+
+    return () => {
+      active = false;
+      scanY.stopAnimation();
+    };
+  }, [scanY]);
+
+  const translateY = scanY.interpolate({
+    inputRange: [-1, 1],
+    outputRange: [-SCAN_H, CARD_IMG_H],
+  });
+
+  // fade 0→0.6 al entrar por arriba, 0.6→0 al salir por abajo
+  const opacity = scanY.interpolate({
+    inputRange: [-1, -0.75, 0.55, 1],
+    outputRange: [0, 0.6, 0.6, 0],
+    extrapolate: 'clamp',
+  });
+
+  return (
+    <Animated.View
+      pointerEvents="none"
+      style={{
+        position: 'absolute',
+        left: 0,
+        right: 0,
+        height: SCAN_H,
+        opacity,
+        transform: [{ translateY }],
+      }}
+    >
+      <LinearGradient
+        colors={['rgba(0,234,223,0)', 'rgba(0,234,223,0.08)', 'rgba(0,234,223,0)']}
+        style={StyleSheet.absoluteFillObject}
+      />
+      <View
+        style={{
+          position: 'absolute',
+          bottom: 0,
+          left: 0,
+          right: 0,
+          height: 1.5,
+          backgroundColor: '#00EADF',
+          shadowColor: '#00EADF',
+          shadowOffset: { width: 0, height: 0 },
+          shadowOpacity: 0.8,
+          shadowRadius: 3,
+          elevation: 4,
+        }}
+      />
+    </Animated.View>
+  );
 }
 
 type Subasta = {
@@ -63,7 +152,6 @@ type Subasta = {
 const { width: SW } = Dimensions.get('window');
 const PAD = 14;
 const GAP = 12;
-const CARD_IMG_H = 110; // altura fija de imagen en cada card
 
 type NavProp = StackNavigationProp<HomeStackParamList, 'HomeMain'>;
 
@@ -99,13 +187,14 @@ interface CardProps {
   item: Subasta;
   gIdx: number;
   onPress: () => void;
+  fontsLoaded?: boolean;
 }
 
-function AuctionCard({ item, gIdx, onPress }: CardProps) {
+function AuctionCard({ item, gIdx, onPress, fontsLoaded }: CardProps) {
   const imgUrl = item.imagenPortadaUrl
     ? (item.imagenPortadaUrl.startsWith('/')
-        ? `${API_BASE_URL}${item.imagenPortadaUrl}`
-        : item.imagenPortadaUrl)
+      ? `${API_BASE_URL}${item.imagenPortadaUrl}`
+      : item.imagenPortadaUrl)
     : '';
 
   const { full } = useCountdownBoth(item.fechaFin);
@@ -145,7 +234,7 @@ function AuctionCard({ item, gIdx, onPress }: CardProps) {
                 <Ionicons name="image-outline" size={26} color={W.inactive} />
               </View>
             )}
-
+            <ScanlineOverlay />
           </View>
 
           {/* Contenido inferior */}
@@ -162,7 +251,10 @@ function AuctionCard({ item, gIdx, onPress }: CardProps) {
             {/* Timer */}
             <View style={s.timerRow}>
               <Ionicons name="time-outline" size={10} color={W.accent} />
-              <Text style={s.timerCode}>{full}</Text>
+              <Text style={[
+                s.timerCode,
+                fontsLoaded && { fontFamily: 'PressStart2P_400Regular', fontSize: 8 },
+              ]}>{full}</Text>
             </View>
 
             {/* Botón Ofertar */}
@@ -171,7 +263,10 @@ function AuctionCard({ item, gIdx, onPress }: CardProps) {
               onPress={onPress}
               activeOpacity={0.75}
             >
-              <Text style={s.bidBtnTxt}>OFERTAR</Text>
+              <Text style={[
+                s.bidBtnTxt,
+                fontsLoaded && { fontFamily: 'PressStart2P_400Regular', fontSize: 7 },
+              ]}>OFERTAR</Text>
             </TouchableOpacity>
           </View>
 
@@ -181,13 +276,128 @@ function AuctionCard({ item, gIdx, onPress }: CardProps) {
   );
 }
 
+Notifications.setNotificationHandler({
+  handleNotification: async () => ({
+    shouldShowAlert: true,
+    shouldShowBanner: true,
+    shouldShowList: true,
+    shouldPlaySound: true,
+    shouldSetBadge: false,
+  }),
+});
+
+async function registerForPushNotificationsAsync() {
+  let token;
+
+  if (Platform.OS === 'android') {
+    await Notifications.setNotificationChannelAsync('default', {
+      name: 'default',
+      importance: Notifications.AndroidImportance.MAX,
+      vibrationPattern: [0, 250, 250, 250],
+      lightColor: '#FF231F7C',
+    });
+  }
+
+  if (Device.isDevice) {
+    const { status: existingStatus } = await Notifications.getPermissionsAsync();
+    let finalStatus = existingStatus;
+    if (existingStatus !== 'granted') {
+      const { status } = await Notifications.requestPermissionsAsync();
+      finalStatus = status;
+    }
+    if (finalStatus !== 'granted') {
+      console.log('Failed to get push token for push notification!');
+      return;
+    }
+    try {
+      const projectId =
+        Constants?.expoConfig?.extra?.eas?.projectId ??
+        Constants?.easConfig?.projectId;
+      
+      token = (
+        await Notifications.getExpoPushTokenAsync({
+          projectId,
+        })
+      ).data;
+      console.log('Expo Push Token obtenido:', token);
+    } catch (error) {
+      console.log('Error obteniendo token con projectId:', error);
+      try {
+        token = (await Notifications.getExpoPushTokenAsync()).data;
+        console.log('Expo Push Token obtenido (sin projectId):', token);
+      } catch (err) {
+        console.log('Error final obteniendo token:', err);
+      }
+    }
+  } else {
+    console.log('Must use physical device for Push Notifications');
+  }
+
+  return token;
+}
+
 // ── HomeScreen ─────────────────────────────────────────────────────────────
 export function HomeScreen() {
   const navigation = useNavigation<NavProp>();
-  const { user } = useAuthStore();
+  const { token, user, setUser } = useAuthStore();
   const [subastas, setSubastas] = useState<Subasta[]>([]);
   const [refreshing, setRefreshing] = useState(false);
-  const { token } = useAuthStore();
+
+  const [fontsLoaded] = useFonts({ PressStart2P_400Regular });
+
+  useEffect(() => {
+    if (!token) return;
+
+    registerForPushNotificationsAsync().then(pushToken => {
+      if (pushToken) {
+        fetch(`${API_BASE_URL}/usuarios/me/token-notificacion`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Bearer ${token}`,
+          },
+          body: JSON.stringify({ token: pushToken }),
+        })
+          .then(res => {
+            if (res.ok) {
+              console.log('Token de notificación registrado con éxito en el backend.');
+            } else {
+              console.log('Error registrando token de notificación en el backend:', res.status);
+            }
+          })
+          .catch(err => {
+            console.error('Error al registrar token de notificación:', err);
+          });
+      }
+    });
+  }, [token]);
+
+  // Rotom animation refs
+  const rotomFloat = useRef(new Animated.Value(0)).current;
+  const rotomRing1 = useRef(new Animated.Value(1)).current;
+  const rotomRing2 = useRef(new Animated.Value(1)).current;
+
+  useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(rotomFloat, { toValue: -5, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+        Animated.timing(rotomFloat, { toValue: 0, duration: 1800, easing: Easing.inOut(Easing.sin), useNativeDriver: true }),
+      ])
+    ).start();
+
+    Animated.loop(
+      Animated.sequence([
+        Animated.parallel([
+          Animated.timing(rotomRing1, { toValue: 1.18, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(rotomRing2, { toValue: 1.35, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ]),
+        Animated.parallel([
+          Animated.timing(rotomRing1, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+          Animated.timing(rotomRing2, { toValue: 1, duration: 1600, easing: Easing.inOut(Easing.ease), useNativeDriver: true }),
+        ]),
+      ])
+    ).start();
+  }, []);
 
   const fetchSubastas = useCallback(async () => {
     try {
@@ -200,11 +410,35 @@ export function HomeScreen() {
     } catch (_) { }
   }, [token]);
 
-  useEffect(() => { fetchSubastas(); }, [fetchSubastas]);
+  const fetchUserProfile = useCallback(async () => {
+    if (!token) return;
+    try {
+      const res = await fetch(`${API_BASE_URL}/usuarios/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
+      if (res.ok) {
+        const data = await res.json();
+        setUser({
+          id: data.id,
+          nombre: data.nombre,
+          apellido: data.apellido,
+          categoria: data.categoria,
+          admitido: data.admitido,
+        });
+      }
+    } catch (_) { }
+  }, [token, setUser]);
+
+  useFocusEffect(
+    useCallback(() => {
+      fetchSubastas();
+      fetchUserProfile();
+    }, [fetchSubastas, fetchUserProfile])
+  );
 
   const onRefresh = () => {
     setRefreshing(true);
-    fetchSubastas().finally(() => setRefreshing(false));
+    Promise.all([fetchSubastas(), fetchUserProfile()]).finally(() => setRefreshing(false));
   };
 
   const initials = user
@@ -222,10 +456,32 @@ export function HomeScreen() {
           <Text style={s.avatarText}>{initials}</Text>
         </View>
         <View style={s.greetingWrap}>
-          <Text style={s.greetingSub}>Bienvenido de nuevo</Text>
+          <Text style={[
+            s.greetingSub,
+            fontsLoaded && { fontFamily: 'PressStart2P_400Regular', fontSize: 7 },
+          ]}>BIENVENIDO DE NUEVO</Text>
           <Text style={s.greetingName}>¡Hola {nombre}!</Text>
         </View>
+        <View style={s.rotomWrap}>
+          <Animated.View style={[s.rotomRing, s.rotomRing1, { transform: [{ scale: rotomRing1 }] }]} />
+          <Animated.View style={[s.rotomRing, s.rotomRing2, { transform: [{ scale: rotomRing2 }] }]} />
+          <Animated.Image
+            source={ROTOM_IMG}
+            style={[s.rotomImg, { transform: [{ translateY: rotomFloat }] }]}
+            resizeMode="contain"
+          />
+        </View>
       </View>
+
+      {/* Banner de validación pendiente */}
+      {user?.admitido !== 'si' && (
+        <View style={s.validationBanner}>
+          <Ionicons name="alert-circle-outline" size={16} color="#00EADF" />
+          <Text style={s.validationBannerTxt}>
+            Tu cuenta está pendiente de validación. Puedes explorar pero no podrás pujar.
+          </Text>
+        </View>
+      )}
 
       {/* Search bar */}
       <TouchableOpacity
@@ -260,6 +516,7 @@ export function HomeScreen() {
                 key={item.id}
                 item={item}
                 gIdx={i}
+                fontsLoaded={fontsLoaded}
                 onPress={() => navigation.navigate('CatalogoDetail', { subastaId: item.id })}
               />
             ))}
@@ -304,6 +561,34 @@ const s = StyleSheet.create({
   greetingName: { fontSize: 16, fontWeight: '700', color: W.text },
 
 
+  // Rotom
+  rotomWrap: {
+    width: 44,
+    height: 44,
+    alignItems: 'center',
+    justifyContent: 'center',
+    position: 'relative',
+  },
+  rotomRing: {
+    position: 'absolute',
+    borderRadius: 22,
+    borderWidth: 1,
+  },
+  rotomRing1: {
+    width: 44,
+    height: 44,
+    borderColor: 'rgba(0,234,223,0.25)',
+  },
+  rotomRing2: {
+    width: 44,
+    height: 44,
+    borderColor: 'rgba(0,234,223,0.1)',
+  },
+  rotomImg: {
+    width: 34,
+    height: 34,
+  },
+
   // Search
   searchBar: {
     flexDirection: 'row',
@@ -320,6 +605,22 @@ const s = StyleSheet.create({
     borderColor: 'rgba(0,234,223,0.2)',
   },
   searchPlaceholder: { color: W.textSub, fontSize: 14, flex: 1 },
+  validationBanner: {
+    backgroundColor: 'rgba(0, 234, 223, 0.08)',
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0, 234, 223, 0.15)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  validationBannerTxt: {
+    color: '#00EADF',
+    fontSize: 12,
+    fontWeight: '600',
+    flex: 1,
+  },
 
 
 

@@ -114,7 +114,7 @@ export function InformacionPersonalScreen() {
       });
       if (!res.ok) throw new Error('Error al guardar');
       const updated = await res.json();
-      setUser({ id: updated.id, nombre: updated.nombre, apellido: updated.apellido, categoria: user?.categoria ?? '' });
+      setUser({ id: updated.id, nombre: updated.nombre, apellido: updated.apellido, categoria: user?.categoria ?? '', admitido: updated.admitido });
       Alert.alert('Éxito', 'Datos actualizados correctamente', [
         { text: 'OK', onPress: () => navigation.goBack() },
       ]);

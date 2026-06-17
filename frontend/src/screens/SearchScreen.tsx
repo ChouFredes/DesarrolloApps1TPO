@@ -41,9 +41,30 @@ const FILTERS = [
   { key: 'NUEVO', label: 'Nuevo' },
 ];
 
+const CLIENT_LEVELS: Record<string, number> = {
+  comun: 0,
+  especial: 1,
+  plata: 2,
+  oro: 3,
+  platino: 4,
+};
+
+const SUBASTA_LEVELS: Record<string, number> = {
+  pociones: 0,
+  otros: 0,
+  maquinas_tecnicas: 1,
+  pokemon: 2,
+  electronica: 3,
+  vehiculos: 3,
+  arte: 4,
+  antiguedades: 4,
+  joyas: 4,
+  inmuebles: 4,
+};
+
 export function SearchScreen() {
   const navigation = useNavigation<any>();
-  const { token } = useAuthStore();
+  const { token, user } = useAuthStore();
   const [query, setQuery] = useState('');
   const [subastas, setSubastas] = useState<Subasta[]>([]);
   const [loading, setLoading] = useState(true);
@@ -52,7 +73,7 @@ export function SearchScreen() {
 
   const fetchSubastas = useCallback(async () => {
     try {
-      const res = await axios.get<Subasta[]>(`${API_BASE_URL}/subastas/abiertas`, {
+      const res = await axios.get<Subasta[]>(`${API_BASE_URL}/subastas/abiertas?todas=true`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       // Mark newest 30% as "new" heuristically by sorting by id descending
@@ -91,6 +112,22 @@ export function SearchScreen() {
   });
 
   const handleJoin = async (subasta: Subasta) => {
+    const clientCategory = user?.categoria?.toLowerCase() || 'comun';
+    const subastaCategory = subasta.categoria?.toLowerCase();
+
+    if (subastaCategory) {
+      const clientLevel = CLIENT_LEVELS[clientCategory] ?? 0;
+      const subastaLevel = SUBASTA_LEVELS[subastaCategory] ?? 0;
+      if (clientLevel < subastaLevel) {
+        Alert.alert(
+          'Acceso restringido',
+          'Lamentablemente esta subasta está por encima de tu categoría',
+          [{ text: 'Entendido' }]
+        );
+        return;
+      }
+    }
+
     setJoiningId(subasta.id);
     try {
       const res = await axios.post(

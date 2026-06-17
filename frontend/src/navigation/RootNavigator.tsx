@@ -5,11 +5,12 @@ import { useAuthStore } from '../stores/authStore';
 import { SplashScreen } from '../screens/SplashScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
+import { VendedorNavigator } from './VendedorNavigator';
 
 const Stack = createStackNavigator();
 
 export function RootNavigator() {
-  const { isAuthenticated } = useAuthStore();
+  const { isAuthenticated, user } = useAuthStore();
   const [showSplash, setShowSplash] = useState(true);
 
   useEffect(() => {
@@ -34,7 +35,11 @@ export function RootNavigator() {
         {showSplash ? (
           <Stack.Screen name="Splash" component={SplashScreen} />
         ) : isAuthenticated ? (
-          <Stack.Screen name="Main" component={MainNavigator} />
+          user?.categoria === 'vendedor' ? (
+            <Stack.Screen name="Vendedor" component={VendedorNavigator} />
+          ) : (
+            <Stack.Screen name="Main" component={MainNavigator} />
+          )
         ) : (
           <Stack.Screen name="Auth" component={AuthNavigator} />
         )}

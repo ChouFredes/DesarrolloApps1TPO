@@ -22,4 +22,7 @@ public class Cliente extends Persona {
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "numeroPais")
     private Pais pais;
+
+    @Column(name = "token_notificacion")
+    private String tokenNotificacion;
 }

@@ -22,9 +22,10 @@ public class SubastaController {
 
     @GetMapping("/abiertas")
     public ResponseEntity<List<SubastaResponse>> obtenerAbiertas(
+            @RequestParam(required = false, defaultValue = "false") boolean todas,
             @RequestHeader("Authorization") String bearerToken) {
         Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
-        return ResponseEntity.ok(subastaService.obtenerAbiertasParaCliente(clienteId));
+        return ResponseEntity.ok(subastaService.obtenerAbiertasParaCliente(clienteId, todas));
     }
 
     @GetMapping("/{id}")

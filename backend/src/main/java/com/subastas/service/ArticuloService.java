@@ -11,20 +11,21 @@ import com.subastas.entity.ItemCatalogo;
 import com.subastas.entity.Producto;
 import com.subastas.entity.Seguro;
 import com.subastas.entity.Subasta;
+import com.subastas.entity.enums.CategoriaSubasta;
 import com.subastas.exception.BusinessException;
 import com.subastas.exception.ResourceNotFoundException;
+import com.subastas.repository.DuenioRepository;
 import com.subastas.repository.FotoRepository;
 import com.subastas.repository.ItemCatalogoRepository;
 import com.subastas.repository.ProductoRepository;
-import jakarta.persistence.EntityManager;
-import jakarta.persistence.PersistenceContext;
+import com.subastas.util.CategoriaUtil;
+import com.subastas.util.ImagenUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.nio.charset.StandardCharsets;
 import java.util.List;
 import java.util.Optional;
 
@@ -36,9 +37,7 @@ public class ArticuloService {
     private final ProductoRepository productoRepository;
     private final FotoRepository fotoRepository;
     private final ItemCatalogoRepository itemCatalogoRepository;
-
-    @PersistenceContext
-    private EntityManager em;
+    private final DuenioRepository duenioRepository;
 
     @Transactional
     public SolicitudArticuloResponse solicitarArticulo(Long clienteId, SolicitudArticuloRequest request) {
@@ -52,22 +51,40 @@ public class ArticuloService {
             throw new BusinessException("Se requieren al menos 6 fotos del artículo");
         }
 
-        // Use a proxy reference for Duenio to avoid loading the full entity hierarchy
-        Duenio duenioRef = em.getReference(Duenio.class, clienteId);
+        Duenio duenio = duenioRepository.findById(clienteId)
+                .orElseThrow(() -> new BusinessException("Solo los vendedores registrados pueden cargar artículos"));
+
+        if (!"si".equalsIgnoreCase(duenio.getAdmitido())) {
+            throw new BusinessException("Tu cuenta de vendedor todavía no fue verificada por el administrador");
+        }
+
+        CategoriaSubasta categoria;
+        try {
+            categoria = CategoriaSubasta.valueOf(request.categoria().toLowerCase().trim());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("Categoría inválida: " + request.categoria());
+        }
+
+        if (!CategoriaUtil.puedeAcceder(duenio.getCategoria(), categoria)) {
+            throw new BusinessException(
+                    "Tu nivel de vendedor (" + (duenio.getCategoria() != null ? duenio.getCategoria().name() : "sin asignar")
+                            + ") no te permite publicar en la categoría " + categoria.name());
+        }
 
         Producto producto = new Producto();
         producto.setDescripcionCatalogo(request.descripcion());
         producto.setDescripcionCompleta(request.descripcionCompleta());
         producto.setDisponible("no");
-        producto.setDuenio(duenioRef);
+        producto.setCategoria(categoria);
+        producto.setDuenio(duenio);
 
         Producto savedProducto = productoRepository.save(producto);
-        log.info("Producto creado con id={}", savedProducto.getId());
+        log.info("Producto creado con id={}, categoria={}", savedProducto.getId(), categoria);
 
         for (String url : request.fotosUrls()) {
             Foto foto = new Foto();
             foto.setProducto(savedProducto);
-            foto.setFoto(url.getBytes(StandardCharsets.UTF_8));
+            foto.setFoto(ImagenUtil.decodeFoto(url));
             fotoRepository.save(foto);
         }
         log.info("Fotos guardadas para productoId={}", savedProducto.getId());
@@ -128,7 +145,8 @@ public class ArticuloService {
                             precioBase,
                             comision,
                             polizaNro,
-                            imagenUrl
+                            imagenUrl,
+                            producto.getCategoria() != null ? producto.getCategoria().name() : null
                     );
                 })
                 .toList();
@@ -182,7 +200,8 @@ public class ArticuloService {
                 precioBase,
                 comision,
                 polizaNro,
-                imagenUrl
+                imagenUrl,
+                producto.getCategoria() != null ? producto.getCategoria().name() : null
         );
     }
 

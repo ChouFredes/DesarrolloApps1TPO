@@ -63,7 +63,7 @@ function MenuRow({ icon, label, onPress, isLast }: MenuRowProps) {
 
 export function ProfileScreen() {
   const navigation = useNavigation<Nav>();
-  const { token, user, logout } = useAuthStore();
+  const { token, user, logout, setUser } = useAuthStore();
   const [userData, setUserData] = useState<UserData | null>(null);
   const [loading, setLoading] = useState(true);
 
@@ -76,7 +76,18 @@ export function ProfileScreen() {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
-      .then((data) => setUserData(data))
+      .then((data) => {
+        setUserData(data);
+        if (data && data.id) {
+          setUser({
+            id: data.id,
+            nombre: data.nombre,
+            apellido: data.apellido,
+            categoria: data.categoria,
+            admitido: data.admitido,
+          });
+        }
+      })
       .catch(() => {
         // Fallback to store data
         if (user) {
@@ -158,6 +169,20 @@ export function ProfileScreen() {
               label="Mis Compras"
               onPress={() => navigation.navigate('Compras')}
             />
+            {user?.categoria === 'admin' && (
+              <MenuRow
+                icon={<Ionicons name="shield-checkmark-outline" size={22} color={colors.accent} />}
+                label="Verificación de Usuarios"
+                onPress={() => navigation.navigate('AdminUsuarios' as any)}
+              />
+            )}
+            {user?.categoria === 'admin' && (
+              <MenuRow
+                icon={<Ionicons name="briefcase-outline" size={22} color={colors.accent} />}
+                label="Verificación de Vendedores"
+                onPress={() => navigation.navigate('AdminVendedores' as any)}
+              />
+            )}
             <MenuRow
               icon={<Ionicons name="settings-outline" size={22} color={colors.accent} />}
               label="Configuración"

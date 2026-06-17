@@ -107,6 +107,15 @@ public class PujaService {
             throw new ForbiddenException("USUARIO_SUSPENDIDO");
         }
 
+        if (!"si".equalsIgnoreCase(cliente.getAdmitido())) {
+            throw new ForbiddenException("CUENTA_PENDIENTE_VALIDACION");
+        }
+
+        if (item.getCatalogo().getSubasta().getCategoria() != null &&
+            !com.subastas.util.CategoriaUtil.puedeAcceder(cliente.getCategoria(), item.getCatalogo().getSubasta().getCategoria())) {
+            throw new ForbiddenException("Lamentablemente esta subasta está por encima de tu categoría");
+        }
+
         List<MedioPago> mediosVerificados = medioPagoRepository
                 .findByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO);
         if (mediosVerificados.isEmpty()) {

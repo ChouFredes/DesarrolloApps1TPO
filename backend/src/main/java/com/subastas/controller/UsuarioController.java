@@ -1,5 +1,6 @@
 package com.subastas.controller;
 
+import com.subastas.dto.request.ActualizarPerfilRequest;
 import com.subastas.dto.request.MedioPagoRequest;
 import com.subastas.dto.response.HistorialUsuarioResponse;
 import com.subastas.dto.response.MedioPagoResponse;
@@ -15,6 +16,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.List;
+import java.util.Map;
 
 @Slf4j
 @RestController
@@ -32,6 +34,15 @@ public class UsuarioController {
         Long userId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
         log.info("GET /usuarios/me — userId={}", userId);
         return ResponseEntity.ok(usuarioService.obtenerPerfil(userId));
+    }
+
+    @PutMapping("/me")
+    public ResponseEntity<UsuarioResponse> actualizarPerfil(
+            @RequestHeader("Authorization") String bearerToken,
+            @Valid @RequestBody ActualizarPerfilRequest request) {
+        Long userId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("PUT /usuarios/me — userId={}", userId);
+        return ResponseEntity.ok(usuarioService.actualizarPerfil(userId, request));
     }
 
     @GetMapping("/me/historial")
@@ -68,5 +79,16 @@ public class UsuarioController {
         log.info("DELETE /usuarios/me/medios-de-pago/{} — userId={}", medioId, userId);
         medioPagoService.eliminar(userId, medioId);
         return ResponseEntity.noContent().build();
+    }
+
+    @PostMapping("/me/token-notificacion")
+    public ResponseEntity<Void> guardarTokenNotificacion(
+            @RequestHeader("Authorization") String bearerToken,
+            @RequestBody Map<String, String> request) {
+        Long userId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        String token = request.get("token");
+        log.info("POST /usuarios/me/token-notificacion — userId={}, token={}", userId, token);
+        usuarioService.guardarTokenNotificacion(userId, token);
+        return ResponseEntity.ok().build();
     }
 }

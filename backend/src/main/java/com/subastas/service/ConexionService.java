@@ -62,6 +62,10 @@ public class ConexionService {
         Cliente cliente = clienteRepository.findById(clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Cliente", "id", clienteId));
 
+        if (subasta.getCategoria() != null && !com.subastas.util.CategoriaUtil.puedeAcceder(cliente.getCategoria(), subasta.getCategoria())) {
+            throw new ForbiddenException("Lamentablemente esta subasta está por encima de tu categoría");
+        }
+
         if (!medioPagoRepository.existsByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)) {
             throw new ForbiddenException("Medio de pago no verificado, necesario para operar");
         }
