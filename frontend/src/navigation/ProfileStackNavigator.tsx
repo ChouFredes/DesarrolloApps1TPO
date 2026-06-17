@@ -14,6 +14,7 @@ import { MultasScreen } from '../screens/MultasScreen';
 import { MetricasScreen } from '../screens/MetricasScreen';
 import { EstadoArticuloScreen } from '../screens/EstadoArticuloScreen';
 import { AdminUsuariosScreen } from '../screens/AdminUsuariosScreen';
+import { AdminVendedoresScreen } from '../screens/AdminVendedoresScreen';
 
 export type ProfileStackParamList = {
   ProfileMain: undefined;
@@ -30,6 +31,7 @@ export type ProfileStackParamList = {
   Multas: undefined;
   Metricas: undefined;
   AdminUsuarios: undefined;
+  AdminVendedores: undefined;
 };
 
 const Stack = createStackNavigator<ProfileStackParamList>();
@@ -64,6 +66,7 @@ export function ProfileStackNavigator() {
       <Stack.Screen name="Multas" component={MultasScreen} />
       <Stack.Screen name="Metricas" component={MetricasScreen} />
       <Stack.Screen name="AdminUsuarios" component={AdminUsuariosScreen} />
+      <Stack.Screen name="AdminVendedores" component={AdminVendedoresScreen} />
     </Stack.Navigator>
   );
 }

@@ -1,5 +1,7 @@
 package com.subastas.service;
 
+import com.subastas.dto.response.VendedorPendienteResponse;
+import com.subastas.entity.Duenio;
 import com.subastas.entity.ItemCatalogo;
 import com.subastas.entity.MedioPago;
 import com.subastas.entity.Producto;
@@ -10,6 +12,7 @@ import com.subastas.entity.enums.EstadoPersona;
 import com.subastas.entity.enums.EstadoSubasta;
 import com.subastas.exception.ResourceNotFoundException;
 import com.subastas.repository.ClienteRepository;
+import com.subastas.repository.DuenioRepository;
 import com.subastas.repository.ItemCatalogoRepository;
 import com.subastas.repository.MedioPagoRepository;
 import com.subastas.repository.ProductoRepository;
@@ -20,6 +23,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.util.List;
 
 @Slf4j
 @Service
@@ -27,6 +31,7 @@ import java.math.BigDecimal;
 public class AdminService {
 
     private final ClienteRepository clienteRepository;
+    private final DuenioRepository duenioRepository;
     private final MedioPagoRepository medioPagoRepository;
     private final ProductoRepository productoRepository;
     private final ItemCatalogoRepository itemCatalogoRepository;
@@ -67,6 +72,44 @@ public class AdminService {
         cliente.setCategoria(CategoriaCliente.valueOf(nuevaCategoria));
         clienteRepository.save(cliente);
         log.info("Categoría cambiada para clienteId={}, nuevaCategoria={}", clienteId, nuevaCategoria);
+    }
+
+    @Transactional(readOnly = true)
+    public List<VendedorPendienteResponse> listarVendedoresPendientes() {
+        return duenioRepository.findByAdmitido("no").stream()
+                .map(d -> new VendedorPendienteResponse(
+                        d.getId(),
+                        d.getNombre(),
+                        d.getApellido(),
+                        d.getDocumento(),
+                        d.getDireccion(),
+                        d.getPais() != null ? d.getPais().getNombre() : null,
+                        d.getFotoAcreditacion() != null ? "/v1/fotos/" + d.getFotoAcreditacion().getId() : null
+                ))
+                .toList();
+    }
+
+    @Transactional
+    public void aprobarVendedor(Long vendedorId, String categoria) {
+        Duenio duenio = duenioRepository.findById(vendedorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendedor", "id", vendedorId));
+        duenio.setAdmitido("si");
+        duenio.setCategoria(CategoriaCliente.valueOf(categoria.toLowerCase().trim()));
+        duenio.setVerificacionFinanciera("aprobado");
+        duenio.setVerificacionJudicial("aprobado");
+        duenio.setEstado(EstadoPersona.activo);
+        duenioRepository.save(duenio);
+        log.info("Vendedor aprobado: vendedorId={}, categoria={}", vendedorId, categoria);
+    }
+
+    @Transactional
+    public void rechazarVendedor(Long vendedorId) {
+        Duenio duenio = duenioRepository.findById(vendedorId)
+                .orElseThrow(() -> new ResourceNotFoundException("Vendedor", "id", vendedorId));
+        duenio.setAdmitido("rechazado");
+        duenio.setEstado(EstadoPersona.inactivo);
+        duenioRepository.save(duenio);
+        log.info("Vendedor rechazado: vendedorId={}", vendedorId);
     }
 
     @Transactional

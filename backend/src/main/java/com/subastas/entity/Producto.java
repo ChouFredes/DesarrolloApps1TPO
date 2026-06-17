@@ -1,5 +1,6 @@
 package com.subastas.entity;
 
+import com.subastas.entity.enums.CategoriaSubasta;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -23,6 +24,11 @@ public class Producto {
 
     @Column(name = "disponible")
     private String disponible;
+
+    /** Categoría temática del producto. Debe ser de nivel menor o igual al del vendedor. */
+    @Column(name = "categoria")
+    @Enumerated(EnumType.STRING)
+    private CategoriaSubasta categoria;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "duenio")

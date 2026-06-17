@@ -13,5 +13,7 @@ public record SolicitudArticuloRequest(
         String datosHistoricos,
         String artista,
         @NotNull Boolean declaraPropiedad,
-        Long cuentaDestinoId
+        Long cuentaDestinoId,
+        /** Categoría temática del artículo (debe estar permitida para el nivel del vendedor) */
+        @NotBlank String categoria
 ) {}

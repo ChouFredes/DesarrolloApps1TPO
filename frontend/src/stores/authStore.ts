@@ -6,6 +6,8 @@ interface User {
   apellido: string;
   categoria: string;
   admitido?: string;
+  /** Para vendedores: nivel asignado por el admin (comun..platino) */
+  nivel?: string | null;
 }
 
 interface AuthState {

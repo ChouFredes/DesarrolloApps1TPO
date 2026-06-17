@@ -19,12 +19,18 @@ import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
+import { CATEGORIA_LABELS } from './VendedorHomeScreen';
 
 interface MedioPago {
   id: number;
   tipo: string;
   alias?: string;
   numero?: string;
+}
+
+interface FotoSeleccionada {
+  uri: string;
+  dataUrl: string;
 }
 
 const MIN_PHOTOS = 6;
@@ -35,13 +41,25 @@ export function SolicitarArticuloScreen() {
 
   const [descripcion, setDescripcion] = useState('');
   const [valorEstimado, setValorEstimado] = useState('');
+  const [categoria, setCategoria] = useState<string | null>(null);
+  const [categoriasPermitidas, setCategoriasPermitidas] = useState<string[]>([]);
   const [cuentaDestinoId, setCuentaDestinoId] = useState<number | null>(null);
   const [mediosDePago, setMediosDePago] = useState<MedioPago[]>([]);
   const [loadingMedios, setLoadingMedios] = useState(true);
-  const [fotos, setFotos] = useState<string[]>([]);
+  const [fotos, setFotos] = useState<FotoSeleccionada[]>([]);
   const [declaracion, setDeclaracion] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+
+  useEffect(() => {
+    // Categorías en las que el vendedor puede publicar (de su nivel a inferior)
+    axios
+      .get(`${API_BASE_URL}/vendedores/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      })
+      .then((res) => setCategoriasPermitidas(res.data.categoriasPermitidas ?? []))
+      .catch(() => {});
+  }, [token]);
 
   useEffect(() => {
     const fetchMedios = async () => {
@@ -71,16 +89,21 @@ export function SolicitarArticuloScreen() {
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
-      quality: 0.7,
+      quality: 0.5,
+      base64: true,
     });
     if (!result.canceled && result.assets.length > 0) {
-      const uri = result.assets[0].uri;
+      const asset = result.assets[0];
+      const nueva: FotoSeleccionada = {
+        uri: asset.uri,
+        dataUrl: asset.base64 ? `data:image/jpeg;base64,${asset.base64}` : asset.uri,
+      };
       setFotos((prev) => {
         const next = [...prev];
         if (index < next.length) {
-          next[index] = uri;
+          next[index] = nueva;
         } else {
-          next.push(uri);
+          next.push(nueva);
         }
         return next;
       });
@@ -97,7 +120,8 @@ export function SolicitarArticuloScreen() {
     if (!valorEstimado.trim() || isNaN(Number(valorEstimado)) || Number(valorEstimado) <= 0) {
       newErrors.valorEstimado = 'Ingresá un valor estimado válido.';
     }
-    if (!cuentaDestinoId) newErrors.cuenta = 'Seleccioná una cuenta destino.';
+    if (!categoria) newErrors.categoria = 'Seleccioná una categoría.';
+    if (mediosDePago.length > 0 && !cuentaDestinoId) newErrors.cuenta = 'Seleccioná una cuenta destino.';
     if (fotos.length < MIN_PHOTOS) {
       newErrors.fotos = `Debés adjuntar al menos ${MIN_PHOTOS} fotos.`;
     }
@@ -114,9 +138,11 @@ export function SolicitarArticuloScreen() {
         `${API_BASE_URL}/articulos/solicitar`,
         {
           descripcion: descripcion.trim(),
-          valorEstimado: Number(valorEstimado),
+          descripcionCompleta: `${descripcion.trim()} — Valor estimado: $${valorEstimado}`,
+          categoria,
+          fotosUrls: fotos.map((f) => f.dataUrl),
           cuentaDestinoId,
-          declaracionPropiedad: true,
+          declaraPropiedad: true,
         },
         { headers: { Authorization: `Bearer ${token}` } }
       );
@@ -177,6 +203,34 @@ export function SolicitarArticuloScreen() {
           error={errors.valorEstimado}
         />
 
+        {/* Categoría */}
+        <Text style={styles.label}>Categoría del artículo</Text>
+        {categoriasPermitidas.length === 0 ? (
+          <View style={styles.noMediosCard}>
+            <Ionicons name="layers-outline" size={20} color={colors.textSecondary} />
+            <Text style={styles.noMediosText}>Cargando categorías permitidas...</Text>
+          </View>
+        ) : (
+          <View style={styles.categoriasWrap}>
+            {categoriasPermitidas.map((cat) => {
+              const active = categoria === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.categoriaPill, active && styles.categoriaPillActive]}
+                  onPress={() => setCategoria(cat)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.categoriaPillText, active && styles.categoriaPillTextActive]}>
+                    {CATEGORIA_LABELS[cat] ?? cat}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+        {errors.categoria ? <Text style={styles.errorMsg}>{errors.categoria}</Text> : null}
+
         {/* Cuenta destino */}
         <Text style={styles.label}>Cuenta destino</Text>
         {loadingMedios ? (
@@ -230,7 +284,7 @@ export function SolicitarArticuloScreen() {
           contentContainerStyle={styles.fotosRow}
         >
           {slots.map((_, index) => {
-            const uri = fotos[index];
+            const uri = fotos[index]?.uri;
             const isAdd = !uri;
             return (
               <View key={index} style={styles.fotoSlot}>
@@ -331,6 +385,33 @@ const styles = StyleSheet.create({
   noMediosText: {
     fontSize: 13,
     color: colors.textSecondary,
+  },
+  categoriasWrap: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: spacing.sm,
+    marginBottom: spacing.base,
+  },
+  categoriaPill: {
+    paddingHorizontal: spacing.base,
+    paddingVertical: spacing.sm,
+    borderRadius: borderRadius.full,
+    borderWidth: 1,
+    borderColor: colors.border,
+    backgroundColor: colors.surface,
+  },
+  categoriaPillActive: {
+    backgroundColor: colors.accent,
+    borderColor: colors.accent,
+  },
+  categoriaPillText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: colors.textSecondary,
+  },
+  categoriaPillTextActive: {
+    color: colors.surface,
+    fontWeight: '700',
   },
   pickerContainer: {
     backgroundColor: colors.surface,

@@ -3,6 +3,7 @@ package com.subastas.controller;
 import com.subastas.dto.request.LoginRequest;
 import com.subastas.dto.request.RegistroPostorPaso1Request;
 import com.subastas.dto.request.RegistroPostorPaso2Request;
+import com.subastas.dto.request.RegistroVendedorRequest;
 import com.subastas.dto.response.ActivacionResponse;
 import com.subastas.dto.response.LoginResponse;
 import com.subastas.dto.response.LogoutResponse;
@@ -29,6 +30,14 @@ public class AuthController {
     public ResponseEntity<RegistroResponse> registroPaso1(
             @Valid @RequestBody RegistroPostorPaso1Request request) {
         RegistroResponse response = authService.registrarPaso1(request);
+        return ResponseEntity.status(HttpStatus.CREATED).body(response);
+    }
+
+    @PostMapping("/registro/vendedor")
+    public ResponseEntity<RegistroResponse> registroVendedor(
+            @Valid @RequestBody RegistroVendedorRequest request) {
+        log.info("POST /auth/registro/vendedor — documento={}", request.documento());
+        RegistroResponse response = authService.registrarVendedor(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 

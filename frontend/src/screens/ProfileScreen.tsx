@@ -176,6 +176,13 @@ export function ProfileScreen() {
                 onPress={() => navigation.navigate('AdminUsuarios' as any)}
               />
             )}
+            {user?.categoria === 'admin' && (
+              <MenuRow
+                icon={<Ionicons name="briefcase-outline" size={22} color={colors.accent} />}
+                label="Verificación de Vendedores"
+                onPress={() => navigation.navigate('AdminVendedores' as any)}
+              />
+            )}
             <MenuRow
               icon={<Ionicons name="settings-outline" size={22} color={colors.accent} />}
               label="Configuración"
