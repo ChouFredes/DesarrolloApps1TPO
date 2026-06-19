@@ -1,7 +1,10 @@
 package com.subastas.service;
 
+import com.subastas.dto.response.ArticuloUsuarioResponse;
+import com.subastas.dto.response.MedioPagoResponse;
 import com.subastas.dto.response.VendedorPendienteResponse;
 import com.subastas.entity.Duenio;
+import com.subastas.entity.Foto;
 import com.subastas.entity.ItemCatalogo;
 import com.subastas.entity.MedioPago;
 import com.subastas.entity.Producto;
@@ -13,6 +16,7 @@ import com.subastas.entity.enums.EstadoSubasta;
 import com.subastas.exception.ResourceNotFoundException;
 import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.DuenioRepository;
+import com.subastas.repository.FotoRepository;
 import com.subastas.repository.ItemCatalogoRepository;
 import com.subastas.repository.MedioPagoRepository;
 import com.subastas.repository.ProductoRepository;
@@ -36,7 +40,12 @@ public class AdminService {
     private final ProductoRepository productoRepository;
     private final ItemCatalogoRepository itemCatalogoRepository;
     private final SubastaRepository subastaRepository;
+    private final FotoRepository fotoRepository;
     private final ExpoNotificationService expoNotificationService;
+
+    // =====================================================================
+    // Usuarios (postores)
+    // =====================================================================
 
     @Transactional
     public void admitirUsuario(Long clienteId) {
@@ -50,7 +59,7 @@ public class AdminService {
             expoNotificationService.enviarNotificacion(
                     cliente.getTokenNotificacion(),
                     "¡Cuenta Validada!",
-                    "Tu cuenta ha sido aprobada y ya podés participar en las subastas."
+                    "Tu cuenta ha sido aprobada. Completá el registro para poder participar en subastas."
             );
         }
     }
@@ -73,6 +82,28 @@ public class AdminService {
         clienteRepository.save(cliente);
         log.info("Categoría cambiada para clienteId={}, nuevaCategoria={}", clienteId, nuevaCategoria);
     }
+
+    @Transactional
+    public void validarPorDni(String documento, String categoria) {
+        var cliente = clienteRepository.findByDocumento(documento)
+                .orElseThrow(() -> new ResourceNotFoundException("Cliente", "documento", documento));
+        cliente.setAdmitido("si");
+        cliente.setEstado(EstadoPersona.activo);
+        cliente.setCategoria(CategoriaCliente.valueOf(categoria.toLowerCase().trim()));
+        clienteRepository.save(cliente);
+        log.info("Usuario validado por DNI: documento={}, admitido=si, categoria={}", documento, categoria);
+        if (cliente.getTokenNotificacion() != null && !cliente.getTokenNotificacion().isBlank()) {
+            expoNotificationService.enviarNotificacion(
+                    cliente.getTokenNotificacion(),
+                    "¡Cuenta Validada!",
+                    "Tu cuenta ha sido aprobada y ya podés participar en las subastas."
+            );
+        }
+    }
+
+    // =====================================================================
+    // Vendedores (dueños)
+    // =====================================================================
 
     @Transactional(readOnly = true)
     public List<VendedorPendienteResponse> listarVendedoresPendientes() {
@@ -112,6 +143,25 @@ public class AdminService {
         log.info("Vendedor rechazado: vendedorId={}", vendedorId);
     }
 
+    // =====================================================================
+    // Medios de pago
+    // =====================================================================
+
+    @Transactional(readOnly = true)
+    public List<MedioPagoResponse> listarMediosPagoPendientes() {
+        return medioPagoRepository.findByEstado(EstadoMedioPago.PENDIENTE_VERIFICACION).stream()
+                .map(mp -> new MedioPagoResponse(
+                        mp.getId(),
+                        mp.getTipo() != null ? mp.getTipo().name() : null,
+                        buildDescripcionMedioPago(mp),
+                        mp.getMoneda(),
+                        mp.getEstado().name(),
+                        mp.isEsBancaExterior(),
+                        mp.getMontoCheque()
+                ))
+                .toList();
+    }
+
     @Transactional
     public void verificarMedioPago(Long medioPagoId) {
         MedioPago mp = medioPagoRepository.findById(medioPagoId)
@@ -121,32 +171,69 @@ public class AdminService {
         log.info("Medio de pago verificado: medioPagoId={}", medioPagoId);
     }
 
-    @Transactional
-    public void aceptarArticulo(Long articuloId) {
-        Producto producto = productoRepository.findById(articuloId)
-                .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
-        producto.setDisponible("aceptado");
-        productoRepository.save(producto);
-        log.info("Artículo aceptado: articuloId={}", articuloId);
+    private String buildDescripcionMedioPago(MedioPago mp) {
+        if (mp.getBanco() != null) return "Cuenta en " + mp.getBanco();
+        if (mp.getNumeroTarjeta() != null) {
+            String num = mp.getNumeroTarjeta();
+            return "Tarjeta terminada en " + (num.length() >= 4 ? num.substring(num.length() - 4) : num);
+        }
+        if (mp.getMontoCheque() != null) return "Cheque por $" + mp.getMontoCheque();
+        return mp.getTipo() != null ? mp.getTipo().name() : "Medio de pago";
     }
 
+    // =====================================================================
+    // Artículos — flujo de inspección
+    // =====================================================================
+
+    /**
+     * Lista todos los artículos pendientes de inspección (estado = 'pendiente_inspeccion').
+     */
+    @Transactional(readOnly = true)
+    public List<ArticuloUsuarioResponse> listarArticulosPendientes() {
+        return productoRepository.findByDisponible("pendiente_inspeccion").stream()
+                .map(this::toArticuloResponse)
+                .toList();
+    }
+
+    /**
+     * Admin acepta la inspección → pasa a 'inspeccion_aprobada' (ahora debe proponer precio).
+     */
+    @Transactional
+    public void aceptarInspeccionArticulo(Long articuloId) {
+        Producto producto = productoRepository.findById(articuloId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
+        producto.setDisponible("inspeccion_aprobada");
+        productoRepository.save(producto);
+        log.info("Inspección aceptada para articuloId={}", articuloId);
+    }
+
+    /**
+     * Admin rechaza el artículo con un motivo visible para el usuario.
+     */
     @Transactional
     public void rechazarArticulo(Long articuloId, String motivo) {
         Producto producto = productoRepository.findById(articuloId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
         producto.setDisponible("rechazado");
+        producto.setMotivoRechazo(motivo != null ? motivo : "Sin motivo especificado");
         productoRepository.save(producto);
         log.info("Artículo rechazado: articuloId={}, motivo={}", articuloId, motivo);
     }
 
+    /**
+     * Admin propone precio base y comisión → estado pasa a 'propuesta_enviada'.
+     * El usuario verá la propuesta y podrá aceptarla o rechazarla.
+     */
     @Transactional
     public void proponerPrecioBase(Long articuloId, BigDecimal precioBase, BigDecimal comision) {
-        ItemCatalogo item = itemCatalogoRepository.findFirstByProductoId(articuloId)
-                .orElseThrow(() -> new ResourceNotFoundException("ItemCatalogo para artículo", "id", articuloId));
-        item.setPrecioBase(precioBase);
-        item.setComision(comision);
-        itemCatalogoRepository.save(item);
-        log.info("Precio base propuesto para articuloId={}: precioBase={}, comision={}", articuloId, precioBase, comision);
+        Producto producto = productoRepository.findById(articuloId)
+                .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
+        // Guardar propuesta directamente en el Producto (no en ItemCatalogo todavía)
+        producto.setPrecioBasePropuesto(precioBase);
+        producto.setComisionPropuesta(comision);
+        producto.setDisponible("propuesta_enviada");
+        productoRepository.save(producto);
+        log.info("Propuesta enviada para articuloId={}: precioBase={}, comision={}", articuloId, precioBase, comision);
     }
 
     @Transactional
@@ -163,12 +250,21 @@ public class AdminService {
         log.info("Seguro contratado para articuloId={}", articuloId);
     }
 
+    // =====================================================================
+    // Items y Subastas
+    // =====================================================================
+
     @Transactional
     public void cerrarItem(Long itemId) {
         ItemCatalogo item = itemCatalogoRepository.findById(itemId)
                 .orElseThrow(() -> new ResourceNotFoundException("Item", "id", itemId));
         item.setSubastado("si");
         itemCatalogoRepository.save(item);
+        // Marcar el producto como vendido
+        if (item.getProducto() != null) {
+            item.getProducto().setDisponible("vendido");
+            productoRepository.save(item.getProducto());
+        }
         log.info("Item cerrado: itemId={}", itemId);
     }
 
@@ -181,21 +277,30 @@ public class AdminService {
         log.info("Subasta cerrada: subastaId={}", subastaId);
     }
 
-    @Transactional
-    public void validarPorDni(String documento, String categoria) {
-        var cliente = clienteRepository.findByDocumento(documento)
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente", "documento", documento));
-        cliente.setAdmitido("si");
-        cliente.setEstado(EstadoPersona.activo);
-        cliente.setCategoria(CategoriaCliente.valueOf(categoria.toLowerCase().trim()));
-        clienteRepository.save(cliente);
-        log.info("Usuario validado por DNI: documento={}, admitido=si, categoria={}", documento, categoria);
-        if (cliente.getTokenNotificacion() != null && !cliente.getTokenNotificacion().isBlank()) {
-            expoNotificationService.enviarNotificacion(
-                    cliente.getTokenNotificacion(),
-                    "¡Cuenta Validada!",
-                    "Tu cuenta ha sido aprobada y ya podés participar en las subastas."
-            );
-        }
+    // =====================================================================
+    // Helpers
+    // =====================================================================
+
+    private ArticuloUsuarioResponse toArticuloResponse(Producto producto) {
+        List<Foto> fotos = fotoRepository.findByProductoId(producto.getId());
+        String imagenUrl = fotos.isEmpty() ? null : "/v1/fotos/" + fotos.get(0).getId();
+
+        String duenioNombre = producto.getDuenio() != null
+                ? producto.getDuenio().getNombre() + " " + producto.getDuenio().getApellido()
+                : null;
+
+        return new ArticuloUsuarioResponse(
+                producto.getId(),
+                producto.getDescripcionCatalogo(),
+                producto.getDisponible(),
+                producto.getDisponible(),
+                producto.getMotivoRechazo(),
+                null,
+                producto.getPrecioBasePropuesto(),
+                producto.getComisionPropuesta(),
+                null,
+                imagenUrl,
+                producto.getCategoria() != null ? producto.getCategoria().name() : null
+        );
     }
 }

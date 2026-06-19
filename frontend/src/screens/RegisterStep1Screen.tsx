@@ -66,8 +66,8 @@ export function RegisterStep1Screen() {
       };
       await axios.post(`${API_BASE_URL}/auth/registro/paso1`, body);
       Alert.alert(
-        'Registro exitoso',
-        'Tu usuario fue creado correctamente. Ya podés iniciar sesión.',
+        '¡Solicitud enviada!',
+        'Tu solicitud de registro fue recibida. La empresa verificará tus datos y recibirás un correo para completar el registro una vez aprobado.',
         [{ text: 'OK', onPress: () => navigation.navigate('Welcome') }]
       );
     } catch (e: any) {

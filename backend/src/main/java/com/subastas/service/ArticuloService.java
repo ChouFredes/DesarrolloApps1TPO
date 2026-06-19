@@ -5,6 +5,7 @@ import com.subastas.dto.response.ArticuloUsuarioResponse;
 import com.subastas.dto.response.PolizaSeguroResponse;
 import com.subastas.dto.response.SolicitudArticuloResponse;
 import com.subastas.dto.response.UbicacionArticuloResponse;
+import com.subastas.entity.Catalogo;
 import com.subastas.entity.Duenio;
 import com.subastas.entity.Foto;
 import com.subastas.entity.ItemCatalogo;
@@ -74,7 +75,8 @@ public class ArticuloService {
         Producto producto = new Producto();
         producto.setDescripcionCatalogo(request.descripcion());
         producto.setDescripcionCompleta(request.descripcionCompleta());
-        producto.setDisponible("no");
+        // Estado inicial: pendiente de inspección por la empresa
+        producto.setDisponible("pendiente_inspeccion");
         producto.setCategoria(categoria);
         producto.setDuenio(duenio);
 
@@ -99,119 +101,23 @@ public class ArticuloService {
     @Transactional(readOnly = true)
     public List<ArticuloUsuarioResponse> listarArticulos(Long clienteId) {
         log.info("Listando artículos para clienteId={}", clienteId);
-
         List<Producto> productos = productoRepository.findByDuenioId(clienteId);
-
-        return productos.stream()
-                .map(producto -> {
-                    Optional<ItemCatalogo> itemOpt = itemCatalogoRepository.findFirstByProductoId(producto.getId());
-
-                    String estado;
-                    Long subastaId = null;
-                    BigDecimal precioBase = null;
-                    BigDecimal comision = null;
-
-                    if (itemOpt.isEmpty()) {
-                        estado = "PENDIENTE_INSPECCION";
-                    } else {
-                        ItemCatalogo item = itemOpt.get();
-                        precioBase = item.getPrecioBase();
-                        comision = item.getComision();
-                        if ("si".equalsIgnoreCase(item.getSubastado())) {
-                            estado = "VENDIDO";
-                        } else {
-                            estado = "ACEPTADO";
-                        }
-                        if (item.getCatalogo() != null && item.getCatalogo().getSubasta() != null) {
-                            subastaId = item.getCatalogo().getSubasta().getId();
-                        }
-                    }
-
-                    String polizaNro = null;
-                    if (producto.getSeguro() != null) {
-                        polizaNro = producto.getSeguro().getNroPoliza();
-                    }
-
-                    List<Foto> fotos = fotoRepository.findByProductoId(producto.getId());
-                    String imagenUrl = fotos.isEmpty() ? null : "/v1/fotos/" + fotos.get(0).getId();
-
-                    return new ArticuloUsuarioResponse(
-                            producto.getId(),
-                            producto.getDescripcionCatalogo(),
-                            producto.getDisponible(),
-                            estado,
-                            null,
-                            subastaId,
-                            precioBase,
-                            comision,
-                            polizaNro,
-                            imagenUrl,
-                            producto.getCategoria() != null ? producto.getCategoria().name() : null
-                    );
-                })
-                .toList();
+        return productos.stream().map(p -> toResponse(p, true)).toList();
     }
 
     @Transactional(readOnly = true)
     public ArticuloUsuarioResponse obtenerArticulo(Long clienteId, Long articuloId) {
         log.info("Obteniendo artículo por id={} para clienteId={}", articuloId, clienteId);
-
         Producto producto = productoRepository.findByIdAndDuenioId(articuloId, clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
-
-        Optional<ItemCatalogo> itemOpt = itemCatalogoRepository.findFirstByProductoId(producto.getId());
-
-        String estado;
-        Long subastaId = null;
-        BigDecimal precioBase = null;
-        BigDecimal comision = null;
-
-        if (itemOpt.isEmpty()) {
-            estado = "PENDIENTE_INSPECCION";
-        } else {
-            ItemCatalogo item = itemOpt.get();
-            precioBase = item.getPrecioBase();
-            comision = item.getComision();
-            if ("si".equalsIgnoreCase(item.getSubastado())) {
-                estado = "VENDIDO";
-            } else {
-                estado = "ACEPTADO";
-            }
-            if (item.getCatalogo() != null && item.getCatalogo().getSubasta() != null) {
-                subastaId = item.getCatalogo().getSubasta().getId();
-            }
-        }
-
-        String polizaNro = null;
-        if (producto.getSeguro() != null) {
-            polizaNro = producto.getSeguro().getNroPoliza();
-        }
-
-        List<Foto> fotos = fotoRepository.findByProductoId(producto.getId());
-        String imagenUrl = fotos.isEmpty() ? null : "/v1/fotos/" + fotos.get(0).getId();
-
-        return new ArticuloUsuarioResponse(
-                producto.getId(),
-                producto.getDescripcionCatalogo(),
-                producto.getDisponible(),
-                estado,
-                null,
-                subastaId,
-                precioBase,
-                comision,
-                polizaNro,
-                imagenUrl,
-                producto.getCategoria() != null ? producto.getCategoria().name() : null
-        );
+        return toResponse(producto, true);
     }
 
     @Transactional(readOnly = true)
     public PolizaSeguroResponse obtenerPoliza(Long clienteId, Long articuloId) {
         log.info("Obteniendo póliza para clienteId={}, articuloId={}", clienteId, articuloId);
-
         Producto producto = productoRepository.findByIdAndDuenioId(articuloId, clienteId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Artículo", "id", articuloId));
+                .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
 
         Seguro seguro = producto.getSeguro();
         if (seguro == null) {
@@ -226,22 +132,40 @@ public class ArticuloService {
         );
     }
 
+    /**
+     * El usuario acepta la propuesta de precio y comisión enviada por la empresa.
+     * Estado → 'aceptado_por_usuario'. La empresa luego procede con el seguro y el depósito.
+     */
     @Transactional
     public void aceptarPrecio(Long articuloId, Long clienteId) {
         Producto producto = productoRepository.findByIdAndDuenioId(articuloId, clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
-        producto.setDisponible("precio_aceptado");
+
+        if (!"propuesta_enviada".equals(producto.getDisponible())) {
+            throw new BusinessException("El artículo no tiene una propuesta pendiente de aceptación");
+        }
+
+        producto.setDisponible("aceptado_por_usuario");
         productoRepository.save(producto);
-        log.info("Precio aceptado para articuloId={}, clienteId={}", articuloId, clienteId);
+        log.info("Propuesta aceptada por el usuario: articuloId={}, clienteId={}", articuloId, clienteId);
     }
 
+    /**
+     * El usuario rechaza la propuesta. El artículo será devuelto con cargo.
+     * Estado → 'rechazado_por_usuario'.
+     */
     @Transactional
     public void rechazarPrecio(Long articuloId, Long clienteId) {
         Producto producto = productoRepository.findByIdAndDuenioId(articuloId, clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
-        producto.setDisponible("precio_rechazado");
+
+        if (!"propuesta_enviada".equals(producto.getDisponible())) {
+            throw new BusinessException("El artículo no tiene una propuesta pendiente de aceptación");
+        }
+
+        producto.setDisponible("rechazado_por_usuario");
         productoRepository.save(producto);
-        log.info("Precio rechazado para articuloId={}, clienteId={}", articuloId, clienteId);
+        log.info("Propuesta rechazada por el usuario: articuloId={}, clienteId={}", articuloId, clienteId);
     }
 
     @Transactional(readOnly = true)
@@ -249,12 +173,10 @@ public class ArticuloService {
         log.info("Obteniendo ubicación para clienteId={}, articuloId={}", clienteId, articuloId);
 
         productoRepository.findByIdAndDuenioId(articuloId, clienteId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Artículo", "id", articuloId));
+                .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
 
         ItemCatalogo item = itemCatalogoRepository.findFirstByProductoId(articuloId)
-                .orElseThrow(() -> new ResourceNotFoundException(
-                        "Artículo aún no recibido en depósito", "id", articuloId));
+                .orElseThrow(() -> new ResourceNotFoundException("Artículo aún no recibido en depósito", "id", articuloId));
 
         Subasta subasta = null;
         if (item.getCatalogo() != null) {
@@ -263,10 +185,56 @@ public class ArticuloService {
 
         String ubicacion = subasta != null ? subasta.getUbicacion() : null;
 
-        return new UbicacionArticuloResponse(
-                ubicacion,
-                ubicacion,
-                null
+        return new UbicacionArticuloResponse(ubicacion, ubicacion, null);
+    }
+
+    // =====================================================================
+    // Helper
+    // =====================================================================
+
+    private ArticuloUsuarioResponse toResponse(Producto producto, boolean incluirItemCatalogo) {
+        Optional<ItemCatalogo> itemOpt = incluirItemCatalogo
+                ? itemCatalogoRepository.findFirstByProductoId(producto.getId())
+                : Optional.empty();
+
+        Long subastaId = null;
+        BigDecimal precioBase = null;
+        BigDecimal comision = null;
+
+        // El precio base y comisión pueden venir de la propuesta del Producto o del ItemCatalogo (si ya fue incluido)
+        if (itemOpt.isPresent()) {
+            ItemCatalogo item = itemOpt.get();
+            precioBase = item.getPrecioBase();
+            comision = item.getComision();
+            if (item.getCatalogo() != null && item.getCatalogo().getSubasta() != null) {
+                subastaId = item.getCatalogo().getSubasta().getId();
+            }
+        } else {
+            // Propuesta aún no concretada en ItemCatalogo
+            precioBase = producto.getPrecioBasePropuesto();
+            comision = producto.getComisionPropuesta();
+        }
+
+        String polizaNro = null;
+        if (producto.getSeguro() != null) {
+            polizaNro = producto.getSeguro().getNroPoliza();
+        }
+
+        List<Foto> fotos = fotoRepository.findByProductoId(producto.getId());
+        String imagenUrl = fotos.isEmpty() ? null : "/v1/fotos/" + fotos.get(0).getId();
+
+        return new ArticuloUsuarioResponse(
+                producto.getId(),
+                producto.getDescripcionCatalogo(),
+                producto.getDisponible(),
+                producto.getDisponible(),  // estado = disponible en este modelo
+                producto.getMotivoRechazo(),
+                subastaId,
+                precioBase,
+                comision,
+                polizaNro,
+                imagenUrl,
+                producto.getCategoria() != null ? producto.getCategoria().name() : null
         );
     }
 }

@@ -22,6 +22,7 @@ import com.subastas.repository.AsistenteRepository;
 import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.ItemCatalogoRepository;
 import com.subastas.repository.MedioPagoRepository;
+import com.subastas.repository.MultaRepository;
 import com.subastas.repository.PujoRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -43,6 +44,7 @@ public class PujaService {
     private final ItemCatalogoRepository itemCatalogoRepository;
     private final MedioPagoRepository medioPagoRepository;
     private final ClienteRepository clienteRepository;
+    private final MultaRepository multaRepository;
     private final SimpMessagingTemplate simpMessagingTemplate;
     private final NotificacionService notificacionService;
 
@@ -109,6 +111,11 @@ public class PujaService {
 
         if (!"si".equalsIgnoreCase(cliente.getAdmitido())) {
             throw new ForbiddenException("CUENTA_PENDIENTE_VALIDACION");
+        }
+
+        // Bloqueo por multas impagas (req: usuario no puede participar hasta pagar)
+        if (multaRepository.existsByClienteIdAndEstado(clienteId, "PENDIENTE")) {
+            throw new ForbiddenException("Tenés multas pendientes de pago. Aboná tus multas para poder participar en subastas.");
         }
 
         if (item.getCatalogo().getSubasta().getCategoria() != null &&

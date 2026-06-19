@@ -183,6 +183,20 @@ export function ProfileScreen() {
                 onPress={() => navigation.navigate('AdminVendedores' as any)}
               />
             )}
+            {user?.categoria === 'admin' && (
+              <MenuRow
+                icon={<Ionicons name="cube-outline" size={22} color={colors.accent} />}
+                label="Artículos Pendientes"
+                onPress={() => navigation.navigate('AdminArticulos' as any)}
+              />
+            )}
+            {user?.categoria === 'admin' && (
+              <MenuRow
+                icon={<Ionicons name="card-outline" size={22} color={colors.accent} />}
+                label="Medios de Pago Pendientes"
+                onPress={() => navigation.navigate('AdminMediosPago' as any)}
+              />
+            )}
             <MenuRow
               icon={<Ionicons name="settings-outline" size={22} color={colors.accent} />}
               label="Configuración"

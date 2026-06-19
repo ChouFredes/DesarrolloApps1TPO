@@ -74,8 +74,7 @@ public class AuthService {
         } else {
             Cliente cliente = new Cliente();
             cliente.setPais(pais);
-            cliente.setAdmitido("no"); // pending validation
-            cliente.setCategoria(CategoriaCliente.comun);
+            cliente.setAdmitido("no"); // pendiente de verificación por el admin — categoría se asigna al aprobar
             persona = cliente;
         }
 
@@ -83,17 +82,22 @@ public class AuthService {
         persona.setNombre(request.nombre());
         persona.setApellido(request.apellido());
         persona.setDireccion(request.direccion());
-        persona.setEstado(EstadoPersona.activo);
-        persona.setPassword(passwordEncoder.encode(request.password()));
+        // Estado pendiente: el usuario no puede operar hasta que el admin lo apruebe y complete el paso 2
+        persona.setEstado(EstadoPersona.pendiente);
+        // Contraseña temporal para que el sistema pueda identificar al usuario en el paso 2
+        // La contraseña definitiva se establece en el paso 2 tras la aprobación del admin
+        if (request.password() != null && !request.password().isBlank()) {
+            persona.setPassword(passwordEncoder.encode(request.password()));
+        }
 
         Persona saved = personaRepository.save(persona);
-        log.info("Registro completado para documento: {}, tipo: {}, id: {}", 
+        log.info("Registro paso 1 completado para documento: {}, tipo: {}, id: {} — estado: pendiente",
                 request.documento(), request.tipoUsuario(), saved.getId());
 
         return new RegistroResponse(
                 saved.getId(),
-                "COMPLETADO",
-                "Usuario registrado con éxito."
+                "PENDIENTE_APROBACION",
+                "Solicitud de registro recibida. La empresa verificará tus datos y recibirás un mail para completar el registro."
         );
     }
 
@@ -149,13 +153,16 @@ public class AuthService {
         }
 
         Cliente cliente = (Cliente) tokenActivacion.getUsuario();
+        // Paso 2: el usuario establece su contraseña definitiva
         cliente.setPassword(passwordEncoder.encode(request.password()));
+        // Al completar el paso 2, el usuario queda activo y puede operar
+        cliente.setEstado(EstadoPersona.activo);
         clienteRepository.save(cliente);
 
         tokenActivacion.setUsado(true);
         tokenActivacionRepository.save(tokenActivacion);
 
-        log.info("Cuenta activada para usuario id: {}", cliente.getId());
+        log.info("Cuenta activada para usuario id: {} — estado ahora: activo", cliente.getId());
 
         // TODO: replace documento with real email field when added to DB schema
         emailService.enviarActivacionCuenta(
@@ -164,10 +171,11 @@ public class AuthService {
                 request.tokenActivacion()
         );
 
+        String categoriaNombre = cliente.getCategoria() != null ? cliente.getCategoria().name() : "pendiente_asignacion";
         return new ActivacionResponse(
                 cliente.getId(),
-                cliente.getCategoria().name(),
-                "Cuenta activada. Ya podés registrar tus medios de pago."
+                categoriaNombre,
+                "Cuenta activada con éxito. Ya podés registrar tus medios de pago."
         );
     }
 
@@ -180,8 +188,10 @@ public class AuthService {
             throw new UnauthorizedException("Credenciales inválidas");
         }
 
-        if (persona.getEstado() != EstadoPersona.activo) {
-            throw new ForbiddenException("Cuenta suspendida");
+        // Solo las cuentas explícitamente inactivas (suspendidas) no pueden ingresar.
+        // Las cuentas pendiente pueden iniciar sesión para ver su estado.
+        if (persona.getEstado() == EstadoPersona.inactivo) {
+            throw new ForbiddenException("Cuenta suspendida o rechazada. Contactá al administrador.");
         }
 
         String categoria = null;

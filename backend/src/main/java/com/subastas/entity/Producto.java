@@ -5,6 +5,8 @@ import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
 
+import java.math.BigDecimal;
+
 @Entity
 @Table(name = "productos")
 @Getter
@@ -22,6 +24,9 @@ public class Producto {
     @Column(name = "descripcionCompleta")
     private String descripcionCompleta;
 
+    /** Estado del ciclo de vida del artículo en el proceso de subasta.
+     *  Valores posibles: pendiente_inspeccion, rechazado, propuesta_enviada,
+     *  aceptado_por_usuario, rechazado_por_usuario, incluido_en_subasta, vendido */
     @Column(name = "disponible")
     private String disponible;
 
@@ -29,6 +34,18 @@ public class Producto {
     @Column(name = "categoria")
     @Enumerated(EnumType.STRING)
     private CategoriaSubasta categoria;
+
+    /** Motivo de rechazo por parte del admin (visible para el usuario dueño). */
+    @Column(name = "motivoRechazo", length = 500)
+    private String motivoRechazo;
+
+    /** Precio base propuesto por la empresa (antes de que el usuario acepte/rechace). */
+    @Column(name = "precioBasePropuesto", precision = 14, scale = 2)
+    private BigDecimal precioBasePropuesto;
+
+    /** Comisión propuesta por la empresa (antes de que el usuario acepte/rechace). */
+    @Column(name = "comisionPropuesta", precision = 14, scale = 2)
+    private BigDecimal comisionPropuesta;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "duenio")
