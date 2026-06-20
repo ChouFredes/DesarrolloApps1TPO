@@ -3,6 +3,7 @@ import { createStackNavigator } from '@react-navigation/stack';
 import { WelcomeScreen } from '../screens/WelcomeScreen';
 import { LoginScreen } from '../screens/LoginScreen';
 import { RegisterStep1Screen } from '../screens/RegisterStep1Screen';
+import { RegisterPasswordScreen } from '../screens/RegisterPasswordScreen';
 import { RegisterStep2Screen } from '../screens/RegisterStep2Screen';
 import { RegisterVendedorScreen } from '../screens/RegisterVendedorScreen';
 import { VendedorPendingScreen } from '../screens/VendedorPendingScreen';
@@ -13,6 +14,13 @@ export type AuthStackParamList = {
   Welcome: undefined;
   Login: undefined;
   RegisterStep1: undefined;
+  RegisterPassword: {
+    nombre: string;
+    apellido: string;
+    domicilio: string;
+    pais: string;
+    dni: string;
+  };
   RegisterStep2: { nombre: string };
   RegisterVendedor: undefined;
   VendedorPending: undefined;
@@ -41,6 +49,7 @@ export function AuthNavigator() {
       <Stack.Screen name="Welcome" component={WelcomeScreen} />
       <Stack.Screen name="Login" component={LoginScreen} />
       <Stack.Screen name="RegisterStep1" component={RegisterStep1Screen} />
+      <Stack.Screen name="RegisterPassword" component={RegisterPasswordScreen} />
       <Stack.Screen name="RegisterStep2" component={RegisterStep2Screen} />
       <Stack.Screen name="RegisterVendedor" component={RegisterVendedorScreen} />
       <Stack.Screen name="VendedorPending" component={VendedorPendingScreen} />

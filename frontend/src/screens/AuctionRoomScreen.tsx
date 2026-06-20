@@ -85,6 +85,7 @@ interface ConectarResponse {
   historialPujas?: Bid[];
   medioPagoSeleccionado?: { id: number };
   itemActual?: { id: number; precioBase: number };
+  puedeOfertar?: boolean;
 }
 
 type OfferStatus = 'idle' | 'procesando' | 'aceptada' | 'rechazada' | 'superada' | 'invalido';
@@ -132,6 +133,7 @@ export function AuctionRoomScreen() {
   const [pujaMinima, setPujaMinima] = useState<number | null>(null);
   const [pujaMaxima, setPujaMaxima] = useState<number | null | undefined>(undefined);
   const [medioPagoId, setMedioPagoId] = useState<number | null>(null);
+  const [puedeOfertar, setPuedeOfertar] = useState(true);
 
   const [offerStatus, setOfferStatus] = useState<OfferStatus>('idle');
   const [offerMessage, setOfferMessage] = useState('');
@@ -241,6 +243,10 @@ export function AuctionRoomScreen() {
 
       if (conexionData.medioPagoSeleccionado?.id) {
         setMedioPagoId(conexionData.medioPagoSeleccionado.id);
+      }
+
+      if (conexionData.puedeOfertar !== undefined) {
+        setPuedeOfertar(conexionData.puedeOfertar);
       }
 
       if (conexionData.historialPujas && conexionData.historialPujas.length > 0) {
@@ -444,41 +450,58 @@ export function AuctionRoomScreen() {
         </View>
 
         <View style={styles.inputArea}>
-          {basePrice > 0 && status === 'connected' && (
-            <View style={styles.quickBidsRow}>
-              {[0.05, 0.10, 0.20].map((pct) => {
-                const addAmount = basePrice * pct;
-                return (
-                  <TouchableOpacity
-                    key={pct}
-                    style={styles.quickBidBtn}
-                    onPress={() => handleQuickBidPercent(pct)}
-                  >
-                    <Text style={styles.quickBidBtnText}>+{pct * 100}% (${addAmount.toLocaleString()})</Text>
-                  </TouchableOpacity>
-                );
-              })}
+          {!puedeOfertar ? (
+            <View style={styles.unverifiedContainer}>
+              <Ionicons name="card-outline" size={24} color="#FF6B6B" style={{ marginBottom: 6 }} />
+              <Text style={styles.unverifiedText}>Verificá tu medio de pago para poder ofertar.</Text>
+              <TouchableOpacity
+                style={styles.goToPaymentsBtn}
+                activeOpacity={0.8}
+                onPress={() => (navigation as any).navigate('Profile', { screen: 'MetodosDePago' })}
+              >
+                <Text style={styles.goToPaymentsBtnText}>Ir a Métodos de Pago</Text>
+                <Ionicons name="arrow-forward" size={16} color="#0A1626" style={{ marginLeft: 6 }} />
+              </TouchableOpacity>
             </View>
-          )}
+          ) : (
+            <>
+              {basePrice > 0 && status === 'connected' && (
+                <View style={styles.quickBidsRow}>
+                  {[0.05, 0.10, 0.20].map((pct) => {
+                    const addAmount = basePrice * pct;
+                    return (
+                      <TouchableOpacity
+                        key={pct}
+                        style={styles.quickBidBtn}
+                        onPress={() => handleQuickBidPercent(pct)}
+                      >
+                        <Text style={styles.quickBidBtnText}>+{pct * 100}% (${addAmount.toLocaleString()})</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              )}
 
-          <View style={styles.inputBar}>
-            <TextInput
-              style={styles.bidInput}
-              value={bidAmount}
-              onChangeText={setBidAmount}
-              placeholder={pujaMinima !== null ? `Mín. $${pujaMinima.toLocaleString('es-AR')}` : `Mín. $${(currentPrice + 1).toLocaleString('es-AR')}`}
-              placeholderTextColor="rgba(225,225,225,0.35)"
-              keyboardType="numeric"
-              editable={status === 'connected'}
-            />
-            <TouchableOpacity
-              style={[styles.pujarBtn, status !== 'connected' && styles.pujarBtnDisabled]}
-              onPress={handleBid}
-              disabled={status !== 'connected'}
-            >
-              <Text style={styles.pujarBtnText}>Pujar</Text>
-            </TouchableOpacity>
-          </View>
+              <View style={styles.inputBar}>
+                <TextInput
+                  style={styles.bidInput}
+                  value={bidAmount}
+                  onChangeText={setBidAmount}
+                  placeholder={pujaMinima !== null ? `Mín. $${pujaMinima.toLocaleString('es-AR')}` : `Mín. $${(currentPrice + 1).toLocaleString('es-AR')}`}
+                  placeholderTextColor="rgba(225,225,225,0.35)"
+                  keyboardType="numeric"
+                  editable={status === 'connected'}
+                />
+                <TouchableOpacity
+                  style={[styles.pujarBtn, status !== 'connected' && styles.pujarBtnDisabled]}
+                  onPress={handleBid}
+                  disabled={status !== 'connected'}
+                >
+                  <Text style={styles.pujarBtnText}>Pujar</Text>
+                </TouchableOpacity>
+              </View>
+            </>
+          )}
 
           {offerStatus !== 'idle' && (
             <Animated.View style={[
@@ -625,6 +648,32 @@ const styles = StyleSheet.create({
     borderTopWidth: 0.5,
     borderTopColor: 'rgba(0,234,223,0.15)',
     paddingBottom: 8,
+  },
+  unverifiedContainer: {
+    padding: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  unverifiedText: {
+    color: '#FF6B6B',
+    fontSize: 14,
+    fontWeight: '600',
+    textAlign: 'center',
+    marginBottom: 10,
+  },
+  goToPaymentsBtn: {
+    backgroundColor: '#00EADF',
+    borderRadius: 20,
+    paddingVertical: 10,
+    paddingHorizontal: 20,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  goToPaymentsBtnText: {
+    color: '#0A1626',
+    fontWeight: '700',
+    fontSize: 13,
   },
   quickBidsRow: {
     flexDirection: 'row',

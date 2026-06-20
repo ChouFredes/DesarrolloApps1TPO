@@ -12,15 +12,15 @@ import java.util.Optional;
 @Repository
 public interface MedioPagoRepository extends JpaRepository<MedioPago, Long> {
 
-    List<MedioPago> findByClienteId(Long clienteId);
+    List<MedioPago> findByPersonaId(Long personaId);
 
-    Optional<MedioPago> findByIdAndClienteId(Long id, Long clienteId);
+    Optional<MedioPago> findByIdAndPersonaId(Long id, Long personaId);
 
-    List<MedioPago> findByClienteIdAndEstado(Long clienteId, EstadoMedioPago estado);
+    List<MedioPago> findByPersonaIdAndEstado(Long personaId, EstadoMedioPago estado);
 
     List<MedioPago> findByEstado(EstadoMedioPago estado);
 
-    List<MedioPago> findByClienteIdAndTipo(Long clienteId, TipoMedioPago tipo);
+    List<MedioPago> findByPersonaIdAndTipo(Long personaId, TipoMedioPago tipo);
 
-    boolean existsByClienteIdAndEstado(Long clienteId, EstadoMedioPago estado);
+    boolean existsByPersonaIdAndEstado(Long personaId, EstadoMedioPago estado);
 }

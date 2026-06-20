@@ -16,9 +16,7 @@ import { StackNavigationProp } from '@react-navigation/stack';
 import { colors, spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
-import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
-
-type Nav = StackNavigationProp<ProfileStackParamList, 'MetodosDePago'>;
+type Nav = StackNavigationProp<any, any>;
 
 type MedioTipo = 'CUENTA_BANCARIA' | 'TARJETA_CREDITO' | 'CHEQUE_CERTIFICADO';
 

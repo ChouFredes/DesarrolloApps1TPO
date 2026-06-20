@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -19,9 +20,8 @@ import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
-import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
 
-type Nav = StackNavigationProp<ProfileStackParamList, 'InformacionPersonal'>;
+type Nav = StackNavigationProp<any, any>;
 
 interface FormData {
   nombre: string;
@@ -58,6 +58,7 @@ export function InformacionPersonalScreen() {
     telefono: '',
     email: '',
   });
+  const [fotoAcreditacionUrl, setFotoAcreditacionUrl] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [errors, setErrors] = useState<Partial<FormData>>({});
@@ -67,7 +68,9 @@ export function InformacionPersonalScreen() {
       setLoading(false);
       return;
     }
-    fetch(`${API_BASE_URL}/usuarios/me`, {
+    
+    // Fetch generic user details
+    const fetchUser = fetch(`${API_BASE_URL}/usuarios/me`, {
       headers: { Authorization: `Bearer ${token}` },
     })
       .then((r) => r.json())
@@ -86,9 +89,22 @@ export function InformacionPersonalScreen() {
           telefono: '',
           email: '',
         });
-      })
-      .finally(() => setLoading(false));
-  }, [user?.id, token]);
+      });
+
+    // Fetch seller-specific details if applicable
+    const fetchSeller = user?.categoria === 'vendedor'
+      ? fetch(`${API_BASE_URL}/vendedores/me`, {
+          headers: { Authorization: `Bearer ${token}` },
+        })
+          .then((r) => r.json())
+          .then((data) => {
+            setFotoAcreditacionUrl(data.fotoAcreditacionUrl);
+          })
+          .catch(() => {})
+      : Promise.resolve();
+
+    Promise.all([fetchUser, fetchSeller]).finally(() => setLoading(false));
+  }, [user?.id, token, user?.categoria]);
 
   const validate = (): boolean => {
     const errs: Partial<FormData> = {};
@@ -188,6 +204,27 @@ export function InformacionPersonalScreen() {
               />
             </View>
 
+            {/* Foto de acreditacion for seller */}
+            {user?.categoria === 'vendedor' && (
+              <View style={styles.fotoSection}>
+                <Text style={styles.fotoSectionTitle}>Foto de Acreditación</Text>
+                <View style={styles.fotoCard}>
+                  {fotoAcreditacionUrl ? (
+                    <Image
+                      source={{ uri: `${API_BASE_URL}${fotoAcreditacionUrl}` }}
+                      style={styles.foto}
+                      resizeMode="cover"
+                    />
+                  ) : (
+                    <View style={styles.fotoEmpty}>
+                      <Ionicons name="image-outline" size={28} color={colors.textSecondary} />
+                      <Text style={styles.fotoEmptyText}>Sin foto cargada</Text>
+                    </View>
+                  )}
+                </View>
+              </View>
+            )}
+
             {/* Save button */}
             <View style={styles.buttonContainer}>
               <PrimaryButton
@@ -279,5 +316,35 @@ const styles = StyleSheet.create({
   buttonContainer: {
     paddingHorizontal: spacing.lg,
     paddingTop: spacing.lg,
+  },
+  fotoSection: {
+    paddingHorizontal: spacing.lg,
+    marginTop: spacing.lg,
+  },
+  fotoSectionTitle: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: colors.textSecondary,
+    marginBottom: spacing.sm,
+  },
+  fotoCard: {
+    borderWidth: 1.5,
+    borderColor: colors.border,
+    borderRadius: borderRadius.md,
+    overflow: 'hidden',
+    backgroundColor: colors.surface,
+  },
+  foto: {
+    width: '100%',
+    height: 200,
+  },
+  fotoEmpty: {
+    alignItems: 'center',
+    paddingVertical: spacing.xxl,
+    gap: 6,
+  },
+  fotoEmptyText: {
+    fontSize: 13,
+    color: colors.textSecondary,
   },
 });

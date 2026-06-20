@@ -1,7 +1,8 @@
 import React, { useEffect, useState } from 'react';
-import { View, Text, StyleSheet, ScrollView, Image, Alert, TouchableOpacity } from 'react-native';
+import { View, Text, StyleSheet, ScrollView, Alert, TouchableOpacity } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
+import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
 import { spacing } from '../theme';
 import { useAuthStore } from '../stores/authStore';
@@ -26,7 +27,29 @@ interface Perfil {
   fotoAcreditacionUrl: string | null;
 }
 
+interface MenuRowProps {
+  icon: React.ReactNode;
+  label: string;
+  onPress: () => void;
+  isLast?: boolean;
+}
+
+function MenuRow({ icon, label, onPress, isLast }: MenuRowProps) {
+  return (
+    <TouchableOpacity
+      style={[styles.menuRow, !isLast && styles.menuRowBorder]}
+      onPress={onPress}
+      activeOpacity={0.7}
+    >
+      <View style={styles.menuRowIcon}>{icon}</View>
+      <Text style={styles.menuRowLabel}>{label}</Text>
+      <Ionicons name="chevron-forward" size={18} color={W.textSub} />
+    </TouchableOpacity>
+  );
+}
+
 export function VendedorPerfilScreen() {
+  const navigation = useNavigation<any>();
   const { token, user, logout } = useAuthStore();
   const [perfil, setPerfil] = useState<Perfil | null>(null);
 
@@ -70,20 +93,19 @@ export function VendedorPerfilScreen() {
           </View>
         </View>
 
-        <Text style={styles.sectionTitle}>Foto de acreditación</Text>
-        <View style={styles.fotoCard}>
-          {perfil?.fotoAcreditacionUrl ? (
-            <Image
-              source={{ uri: `${API_BASE_URL}${perfil.fotoAcreditacionUrl}` }}
-              style={styles.foto}
-              resizeMode="cover"
-            />
-          ) : (
-            <View style={styles.fotoEmpty}>
-              <Ionicons name="image-outline" size={28} color={W.textSub} />
-              <Text style={styles.fotoEmptyText}>Sin foto cargada</Text>
-            </View>
-          )}
+        {/* Menu list */}
+        <View style={styles.menuCard}>
+          <MenuRow
+            icon={<Ionicons name="person-outline" size={20} color={W.accent} />}
+            label="Información Personal"
+            onPress={() => navigation.navigate('InformacionPersonal')}
+          />
+          <MenuRow
+            icon={<Ionicons name="card-outline" size={20} color={W.accent} />}
+            label="Métodos de Pago"
+            onPress={() => navigation.navigate('MetodosDePago')}
+            isLast
+          />
         </View>
 
         <TouchableOpacity style={styles.logoutBtn} onPress={handleLogout} activeOpacity={0.8}>
@@ -129,18 +151,34 @@ const styles = StyleSheet.create({
     paddingVertical: 4,
   },
   nivelText: { fontSize: 12, fontWeight: '700', letterSpacing: 1 },
-  sectionTitle: { fontSize: 14, fontWeight: '700', color: W.text, marginBottom: spacing.sm },
-  fotoCard: {
+  menuCard: {
+    backgroundColor: W.card,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: W.border,
-    borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: W.card,
     marginBottom: spacing.xl,
   },
-  foto: { width: '100%', height: 200 },
-  fotoEmpty: { alignItems: 'center', paddingVertical: spacing.xxl, gap: 6 },
-  fotoEmptyText: { fontSize: 13, color: W.textSub },
+  menuRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    minHeight: 56,
+    paddingHorizontal: spacing.lg,
+  },
+  menuRowBorder: {
+    borderBottomWidth: 1,
+    borderBottomColor: 'rgba(0,234,223,0.12)',
+  },
+  menuRowIcon: {
+    width: 32,
+    alignItems: 'center',
+  },
+  menuRowLabel: {
+    flex: 1,
+    fontSize: 15,
+    color: W.text,
+    marginLeft: spacing.xs,
+  },
   logoutBtn: {
     flexDirection: 'row',
     alignItems: 'center',

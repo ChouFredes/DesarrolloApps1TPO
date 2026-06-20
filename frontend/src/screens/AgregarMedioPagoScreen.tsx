@@ -18,9 +18,7 @@ import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
-import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
-
-type Nav = StackNavigationProp<ProfileStackParamList, 'AgregarMedioPago'>;
+type Nav = StackNavigationProp<any, any>;
 
 type TipoMedio = 'CUENTA_BANCARIA' | 'TARJETA_CREDITO' | 'CHEQUE_CERTIFICADO';
 
@@ -97,11 +95,26 @@ export function AgregarMedioPagoScreen() {
 
   const buildPayload = () => {
     if (activeTab === 'CUENTA_BANCARIA') {
-      return { tipo: activeTab, ...cuentaForm };
+      return {
+        tipo: activeTab,
+        numeroCuenta: cuentaForm.cbu,
+        banco: cuentaForm.banco,
+        moneda: cuentaForm.moneda,
+      };
     } else if (activeTab === 'TARJETA_CREDITO') {
-      return { tipo: activeTab, ...tarjetaForm };
+      return {
+        tipo: activeTab,
+        numeroTarjeta: tarjetaForm.numeroTarjeta,
+        vencimiento: tarjetaForm.vencimiento,
+        moneda: 'USD',
+      };
     } else {
-      return { tipo: activeTab, ...chequeForm, monto: parseFloat(chequeForm.monto) || 0 };
+      return {
+        tipo: activeTab,
+        banco: chequeForm.banco,
+        montoCheque: parseFloat(chequeForm.monto) || 0,
+        moneda: 'ARS',
+      };
     }
   };
 

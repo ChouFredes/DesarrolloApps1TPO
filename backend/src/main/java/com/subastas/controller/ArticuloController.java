@@ -1,7 +1,10 @@
 package com.subastas.controller;
 
+import com.subastas.dto.request.LoteRequest;
+import com.subastas.dto.request.ModificarArticuloRequest;
 import com.subastas.dto.request.SolicitudArticuloRequest;
 import com.subastas.dto.response.ArticuloUsuarioResponse;
+import com.subastas.dto.response.LoteResponse;
 import com.subastas.dto.response.PolizaSeguroResponse;
 import com.subastas.dto.response.SolicitudArticuloResponse;
 import com.subastas.dto.response.UbicacionArticuloResponse;
@@ -31,6 +34,15 @@ public class ArticuloController {
         Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
         log.info("POST /articulos/solicitar — clienteId={}", clienteId);
         return ResponseEntity.status(HttpStatus.CREATED).body(articuloService.solicitarArticulo(clienteId, request));
+    }
+
+    @PostMapping("/articulos/lote")
+    public ResponseEntity<LoteResponse> solicitarLote(
+            @RequestHeader("Authorization") String bearerToken,
+            @Valid @RequestBody LoteRequest request) {
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("POST /articulos/lote — clienteId={}", clienteId);
+        return ResponseEntity.status(HttpStatus.CREATED).body(articuloService.solicitarLote(clienteId, request));
     }
 
     @GetMapping("/articulos/mis-articulos")
@@ -86,5 +98,15 @@ public class ArticuloController {
         log.info("POST /articulos/{}/rechazar-precio — clienteId={}", articuloId, clienteId);
         articuloService.rechazarPrecio(articuloId, clienteId);
         return ResponseEntity.ok().build();
+    }
+
+    @PutMapping("/articulos/{articuloId}")
+    public ResponseEntity<ArticuloUsuarioResponse> actualizarArticulo(
+            @PathVariable Long articuloId,
+            @RequestHeader("Authorization") String bearerToken,
+            @Valid @RequestBody ModificarArticuloRequest request) {
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("PUT /articulos/{} — clienteId={}", articuloId, clienteId);
+        return ResponseEntity.ok(articuloService.actualizarArticulo(clienteId, articuloId, request));
     }
 }

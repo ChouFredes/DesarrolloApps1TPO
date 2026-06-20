@@ -66,9 +66,7 @@ public class ConexionService {
             throw new ForbiddenException("Lamentablemente esta subasta está por encima de tu categoría");
         }
 
-        if (!medioPagoRepository.existsByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)) {
-            throw new ForbiddenException("Medio de pago no verificado, necesario para operar");
-        }
+        boolean tieneMedioPagoVerificado = medioPagoRepository.existsByPersonaIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO);
 
         if (asistenteRepository.existsByClienteIdAndSubastaEstado(clienteId, EstadoSubasta.abierta)
                 && asistenteRepository.findByClienteIdAndSubastaId(clienteId, subastaId).isEmpty()) {
@@ -140,7 +138,7 @@ public class ConexionService {
         }
 
         MedioPagoResponse medioPagoSeleccionado = medioPagoRepository
-                .findByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)
+                .findByPersonaIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)
                 .stream()
                 .findFirst()
                 .map(mp -> new MedioPagoResponse(
@@ -150,7 +148,9 @@ public class ConexionService {
                         mp.getMoneda(),
                         mp.getEstado() != null ? mp.getEstado().name() : null,
                         mp.isEsBancaExterior(),
-                        mp.getMontoCheque()
+                        mp.getMontoCheque(),
+                        mp.getNumeroCuenta(),
+                        mp.getNumeroTarjeta()
                 ))
                 .orElse(null);
 
@@ -160,7 +160,7 @@ public class ConexionService {
                 asistente.getNumeroPostor(),
                 itemActualResponse,
                 mayorOfertaActual,
-                true,
+                tieneMedioPagoVerificado,
                 pujaMinima,
                 pujaMaxima,
                 null,

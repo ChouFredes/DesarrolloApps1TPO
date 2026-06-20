@@ -82,13 +82,10 @@ public class AuthService {
         persona.setNombre(request.nombre());
         persona.setApellido(request.apellido());
         persona.setDireccion(request.direccion());
-        // Estado pendiente: el usuario no puede operar hasta que el admin lo apruebe y complete el paso 2
+        // Estado pendiente: el usuario no puede operar hasta que el admin lo apruebe
         persona.setEstado(EstadoPersona.pendiente);
-        // Contraseña temporal para que el sistema pueda identificar al usuario en el paso 2
-        // La contraseña definitiva se establece en el paso 2 tras la aprobación del admin
-        if (request.password() != null && !request.password().isBlank()) {
-            persona.setPassword(passwordEncoder.encode(request.password()));
-        }
+        // Se guarda la contraseña en el paso 1 para permitir el login directo tras la aprobación del admin
+        persona.setPassword(passwordEncoder.encode(request.password()));
 
         Persona saved = personaRepository.save(persona);
         log.info("Registro paso 1 completado para documento: {}, tipo: {}, id: {} — estado: pendiente",
@@ -116,7 +113,7 @@ public class AuthService {
         duenio.setApellido(request.apellido());
         duenio.setDireccion(request.direccion());
         duenio.setPais(pais);
-        duenio.setEstado(EstadoPersona.activo);
+        duenio.setEstado(EstadoPersona.pendiente);
         duenio.setPassword(passwordEncoder.encode(request.password()));
         duenio.setAdmitido("no"); // pendiente de verificación por el admin
         duenio.setVerificacionFinanciera("pendiente");
@@ -204,7 +201,7 @@ public class AuthService {
                 admitido = cliente.getAdmitido();
             }
         } else if (persona instanceof Cliente cliente) {
-            categoria = cliente.getCategoria().name();
+            categoria = cliente.getCategoria() != null ? cliente.getCategoria().name() : null;
             admitido = cliente.getAdmitido();
         } else if (persona instanceof Duenio duenio) {
             categoria = "vendedor";

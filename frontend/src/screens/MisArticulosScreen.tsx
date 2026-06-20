@@ -39,22 +39,41 @@ function StatusBadge({ estado }: { estado: ArticuloEstado }) {
 
   switch (estado) {
     case 'ACEPTADO':
+    case 'aceptado_por_usuario':
       bgColor = '#E8F5E9';
       textColor = colors.success;
-      label = 'Aceptado';
+      label = 'Propuesta Aceptada';
       break;
     case 'RECHAZADO':
+    case 'rechazado':
       bgColor = '#FFEBEE';
       textColor = colors.error;
-      label = 'Rechazado';
+      label = 'Rechazado Físicamente';
+      break;
+    case 'rechazado_por_usuario':
+      bgColor = '#FFEBEE';
+      textColor = colors.error;
+      label = 'Propuesta Rechazada';
       break;
     case 'PENDIENTE':
     case 'PENDIENTE_INSPECCION':
+    case 'pendiente_inspeccion':
       bgColor = '#F5F5F5';
       textColor = colors.textSecondary;
-      label = 'Pendiente';
+      label = 'Pendiente de Inspección';
+      break;
+    case 'inspeccion_aprobada':
+      bgColor = '#FFF9C4';
+      textColor = '#F5A623';
+      label = 'Inspección Aprobada';
+      break;
+    case 'propuesta_enviada':
+      bgColor = '#EDE7F6';
+      textColor = '#673AB7';
+      label = 'Propuesta de Precio Recibida';
       break;
     case 'VENDIDO':
+    case 'vendido':
       bgColor = '#E3F2FD';
       textColor = colors.primary;
       label = 'Vendido';

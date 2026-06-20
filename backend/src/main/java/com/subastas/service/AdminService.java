@@ -14,12 +14,14 @@ import com.subastas.entity.enums.EstadoMedioPago;
 import com.subastas.entity.enums.EstadoPersona;
 import com.subastas.entity.enums.EstadoSubasta;
 import com.subastas.exception.ResourceNotFoundException;
+import com.subastas.entity.Seguro;
 import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.DuenioRepository;
 import com.subastas.repository.FotoRepository;
 import com.subastas.repository.ItemCatalogoRepository;
 import com.subastas.repository.MedioPagoRepository;
 import com.subastas.repository.ProductoRepository;
+import com.subastas.repository.SeguroRepository;
 import com.subastas.repository.SubastaRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
@@ -42,6 +44,7 @@ public class AdminService {
     private final SubastaRepository subastaRepository;
     private final FotoRepository fotoRepository;
     private final ExpoNotificationService expoNotificationService;
+    private final SeguroRepository seguroRepository;
 
     // =====================================================================
     // Usuarios (postores)
@@ -157,7 +160,9 @@ public class AdminService {
                         mp.getMoneda(),
                         mp.getEstado().name(),
                         mp.isEsBancaExterior(),
-                        mp.getMontoCheque()
+                        mp.getMontoCheque(),
+                        mp.getNumeroCuenta(),
+                        mp.getNumeroTarjeta()
                 ))
                 .toList();
     }
@@ -190,7 +195,7 @@ public class AdminService {
      */
     @Transactional(readOnly = true)
     public List<ArticuloUsuarioResponse> listarArticulosPendientes() {
-        return productoRepository.findByDisponible("pendiente_inspeccion").stream()
+        return productoRepository.findByDisponibleIn(List.of("pendiente_inspeccion", "inspeccion_aprobada")).stream()
                 .map(this::toArticuloResponse)
                 .toList();
     }
@@ -238,15 +243,25 @@ public class AdminService {
 
     @Transactional
     public void asignarDeposito(Long articuloId, String deposito) {
-        productoRepository.findById(articuloId)
+        Producto producto = productoRepository.findById(articuloId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
+        producto.setDeposito(deposito);
+        productoRepository.save(producto);
         log.info("Depósito asignado para articuloId={}: {}", articuloId, deposito);
     }
 
     @Transactional
     public void contratarSeguro(Long articuloId) {
-        productoRepository.findById(articuloId)
+        Producto producto = productoRepository.findById(articuloId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
+        Seguro seguro = new Seguro();
+        seguro.setNroPoliza("POL-" + articuloId + "-" + System.currentTimeMillis());
+        seguro.setCompania("Aseguradora VIVO");
+        seguro.setImporte(producto.getPrecioBasePropuesto() != null ? producto.getPrecioBasePropuesto() : BigDecimal.ZERO);
+        seguro.setPolizaCombinada("no");
+        seguroRepository.save(seguro);
+        producto.setSeguro(seguro);
+        productoRepository.save(producto);
         log.info("Seguro contratado para articuloId={}", articuloId);
     }
 
@@ -283,7 +298,10 @@ public class AdminService {
 
     private ArticuloUsuarioResponse toArticuloResponse(Producto producto) {
         List<Foto> fotos = fotoRepository.findByProductoId(producto.getId());
-        String imagenUrl = fotos.isEmpty() ? null : "/v1/fotos/" + fotos.get(0).getId();
+        List<String> fotosUrls = fotos.stream()
+                .map(f -> "/v1/fotos/" + f.getId())
+                .toList();
+        String imagenUrl = fotosUrls.isEmpty() ? null : fotosUrls.get(0);
 
         String duenioNombre = producto.getDuenio() != null
                 ? producto.getDuenio().getNombre() + " " + producto.getDuenio().getApellido()
@@ -298,9 +316,11 @@ public class AdminService {
                 null,
                 producto.getPrecioBasePropuesto(),
                 producto.getComisionPropuesta(),
-                null,
+                producto.getSeguro() != null ? producto.getSeguro().getNroPoliza() : null,
                 imagenUrl,
-                producto.getCategoria() != null ? producto.getCategoria().name() : null
+                producto.getCategoria() != null ? producto.getCategoria().name() : null,
+                producto.getDescripcionCompleta(),
+                fotosUrls
         );
     }
 }

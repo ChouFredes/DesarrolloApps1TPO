@@ -6,6 +6,7 @@ import {
   TouchableOpacity,
   Alert,
   ActivityIndicator,
+  ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
@@ -129,7 +130,7 @@ export function ProfileScreen() {
           <ActivityIndicator size="large" color={colors.accent} />
         </View>
       ) : (
-        <>
+        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
           {/* Avatar + Name */}
           <View style={styles.avatarSection}>
             {displayData ? (
@@ -205,9 +206,6 @@ export function ProfileScreen() {
             />
           </View>
 
-          {/* Spacer */}
-          <View style={{ flex: 1 }} />
-
           {/* Salir button */}
           <View style={styles.logoutContainer}>
             <TouchableOpacity style={styles.logoutButton} onPress={handleLogout} activeOpacity={0.8}>
@@ -215,7 +213,7 @@ export function ProfileScreen() {
               <Text style={styles.logoutText}>Salir</Text>
             </TouchableOpacity>
           </View>
-        </>
+        </ScrollView>
       )}
     </SafeAreaView>
   );
@@ -227,6 +225,10 @@ const styles = StyleSheet.create({
   safe: {
     flex: 1,
     backgroundColor: colors.surface,
+  },
+  scrollContent: {
+    flexGrow: 1,
+    paddingBottom: spacing.xl,
   },
   header: {
     flexDirection: 'row',

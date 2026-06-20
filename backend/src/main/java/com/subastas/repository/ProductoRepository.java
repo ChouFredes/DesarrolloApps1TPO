@@ -15,4 +15,6 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     Optional<Producto> findByIdAndDuenioId(Long id, Long duenioId);
 
     List<Producto> findByDisponible(String disponible);
+
+    List<Producto> findByDisponibleIn(List<String> disponibles);
 }

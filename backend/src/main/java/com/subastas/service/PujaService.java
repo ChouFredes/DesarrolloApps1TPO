@@ -124,13 +124,13 @@ public class PujaService {
         }
 
         List<MedioPago> mediosVerificados = medioPagoRepository
-                .findByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO);
+                .findByPersonaIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO);
         if (mediosVerificados.isEmpty()) {
-            throw new ForbiddenException("Sin medios de pago verificados");
+            throw new BusinessException("Sin medios de pago verificados");
         }
 
         MedioPago medioPago = medioPagoRepository
-                .findByIdAndClienteId(medioPagoId, clienteId)
+                .findByIdAndPersonaId(medioPagoId, clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Medio de pago no encontrado"));
         if (medioPago.getEstado() != EstadoMedioPago.VERIFICADO) {
             throw new BusinessException("El medio de pago seleccionado no está verificado");

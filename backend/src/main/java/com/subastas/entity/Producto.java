@@ -47,9 +47,17 @@ public class Producto {
     @Column(name = "comisionPropuesta", precision = 14, scale = 2)
     private BigDecimal comisionPropuesta;
 
+    @Column(name = "deposito")
+    private String deposito;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "duenio")
     private Duenio duenio;
+
+    /** Lote al que pertenece el producto (nullable: los artículos individuales no tienen lote). */
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "lote")
+    private Lote lote;
 
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "seguro")
