@@ -7,9 +7,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import axios from 'axios';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 interface Multa {
   id: number;
@@ -113,7 +120,7 @@ export function MultasScreen() {
             disabled={pagando === item.id}
           >
             {pagando === item.id
-              ? <ActivityIndicator color="#fff" />
+              ? <ActivityIndicator color="#0A1626" />
               : <Text style={styles.pagarBtnText}>Pagar multa</Text>}
           </TouchableOpacity>
         </>
@@ -196,8 +203,8 @@ const styles = StyleSheet.create({
     paddingHorizontal: 8, paddingVertical: 3,
     borderRadius: borderRadius.full,
   },
-  badgePendiente: { backgroundColor: '#FEE2E2', color: colors.error },
-  badgePagada: { backgroundColor: '#D1FAE5', color: colors.success },
+  badgePendiente: { backgroundColor: '#152C44', color: colors.error },
+  badgePagada: { backgroundColor: '#152C44', color: colors.success },
   pulseDot: {
     width: 8, height: 8, borderRadius: 4,
     backgroundColor: colors.error, marginLeft: spacing.xs,
@@ -209,7 +216,7 @@ const styles = StyleSheet.create({
     backgroundColor: colors.primary, borderRadius: borderRadius.md,
     paddingVertical: spacing.md, alignItems: 'center', marginTop: spacing.sm,
   },
-  pagarBtnText: { color: '#fff', fontWeight: '700', fontSize: 15 },
+  pagarBtnText: { color: '#0A1626', fontWeight: '700', fontSize: 15 },
   pagadaText: { fontSize: 12, color: colors.success },
   centered: { flex: 1, justifyContent: 'center', alignItems: 'center' },
   empty: { alignItems: 'center', paddingTop: 60, gap: spacing.md },

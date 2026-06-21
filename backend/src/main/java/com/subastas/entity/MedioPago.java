@@ -20,8 +20,8 @@ public class MedioPago {
     private Long id;
 
     @ManyToOne(fetch = FetchType.LAZY)
-    @JoinColumn(name = "cliente_id", nullable = false)
-    private Cliente cliente;
+    @JoinColumn(name = "persona_id", nullable = false)
+    private Persona persona;
 
     @Column(name = "tipo", nullable = false)
     @Enumerated(EnumType.STRING)

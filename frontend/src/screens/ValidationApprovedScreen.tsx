@@ -4,9 +4,16 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { Ionicons } from '@expo/vector-icons';
 import { PrimaryButton } from '../components/PrimaryButton';
-import { colors, spacing } from '../theme';
+import { spacing } from '../theme';
 import { AuthStackParamList } from '../navigation/AuthNavigator';
 import { useAuthStore } from '../stores/authStore';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 type Route = RouteProp<AuthStackParamList, 'ValidationApproved'>;
 

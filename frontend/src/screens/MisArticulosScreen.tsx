@@ -14,10 +14,17 @@ import { Ionicons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import axios from 'axios';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 type NavProp = StackNavigationProp<ProfileStackParamList, 'MisArticulos'>;
 
@@ -33,29 +40,48 @@ interface Articulo {
 }
 
 function StatusBadge({ estado }: { estado: ArticuloEstado }) {
-  let bgColor = '#F5F5F5';
+  let bgColor = '#152C44';
   let textColor = colors.textSecondary;
   let label = estado;
 
   switch (estado) {
     case 'ACEPTADO':
-      bgColor = '#E8F5E9';
+    case 'aceptado_por_usuario':
+      bgColor = '#152C44';
       textColor = colors.success;
-      label = 'Aceptado';
+      label = 'Propuesta Aceptada';
       break;
     case 'RECHAZADO':
-      bgColor = '#FFEBEE';
+    case 'rechazado':
+      bgColor = '#152C44';
       textColor = colors.error;
-      label = 'Rechazado';
+      label = 'Rechazado Físicamente';
+      break;
+    case 'rechazado_por_usuario':
+      bgColor = '#152C44';
+      textColor = colors.error;
+      label = 'Propuesta Rechazada';
       break;
     case 'PENDIENTE':
     case 'PENDIENTE_INSPECCION':
-      bgColor = '#F5F5F5';
+    case 'pendiente_inspeccion':
+      bgColor = '#152C44';
       textColor = colors.textSecondary;
-      label = 'Pendiente';
+      label = 'Pendiente de Inspección';
+      break;
+    case 'inspeccion_aprobada':
+      bgColor = '#152C44';
+      textColor = '#F5C542';
+      label = 'Inspección Aprobada';
+      break;
+    case 'propuesta_enviada':
+      bgColor = '#152C44';
+      textColor = '#B98CFF';
+      label = 'Propuesta de Precio Recibida';
       break;
     case 'VENDIDO':
-      bgColor = '#E3F2FD';
+    case 'vendido':
+      bgColor = '#152C44';
       textColor = colors.primary;
       label = 'Vendido';
       break;
@@ -160,7 +186,7 @@ export function MisArticulosScreen() {
         activeOpacity={0.8}
         onPress={() => navigation.navigate('SolicitarArticulo')}
       >
-        <Ionicons name="add-circle-outline" size={20} color="#fff" />
+        <Ionicons name="add-circle-outline" size={20} color="#0A1626" />
         <Text style={styles.solicitarBtnText}>Solicitar artículo</Text>
       </TouchableOpacity>
 
@@ -241,7 +267,7 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   solicitarBtnText: {
-    color: '#fff',
+    color: '#0A1626',
     fontSize: 15,
     fontWeight: '600',
   },
@@ -313,7 +339,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: borderRadius.xl,
   },
-  retryText: { color: '#fff', fontWeight: '600' },
+  retryText: { color: '#0A1626', fontWeight: '600' },
   emptyState: {
     alignItems: 'center',
     paddingTop: 60,

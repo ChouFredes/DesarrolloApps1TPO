@@ -19,6 +19,7 @@ import com.subastas.repository.AsistenteRepository;
 import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.ItemCatalogoRepository;
 import com.subastas.repository.MedioPagoRepository;
+import com.subastas.repository.MultaRepository;
 import com.subastas.repository.PujoRepository;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -54,6 +55,12 @@ class PujaServiceTest {
 
     @Mock
     private ClienteRepository clienteRepository;
+
+    @Mock
+    private MultaRepository multaRepository;
+
+    @Mock
+    private NotificacionService notificacionService;
 
     @Mock
     private SimpMessagingTemplate simpMessagingTemplate;
@@ -104,7 +111,7 @@ class PujaServiceTest {
         mp.setId(id);
         Cliente c = new Cliente();
         c.setId(clienteId);
-        mp.setCliente(c);
+        mp.setPersona(c);
         mp.setEstado(estado);
         mp.setTipo(TipoMedioPago.TARJETA_CREDITO);
         return mp;
@@ -134,7 +141,7 @@ class PujaServiceTest {
     }
 
     @Test
-    void realizarPuja_sinMediosPagoVerificados_lanzaForbiddenException() {
+    void realizarPuja_sinMediosPagoVerificados_lanzaBusinessException() {
         Subasta subasta = buildSubasta(10L);
         Catalogo catalogo = buildCatalogo(subasta);
         ItemCatalogo item = buildItem(1L, catalogo, new BigDecimal("100.00"));
@@ -142,12 +149,13 @@ class PujaServiceTest {
 
         when(itemCatalogoRepository.findById(1L)).thenReturn(Optional.of(item));
         when(clienteRepository.findById(5L)).thenReturn(Optional.of(cliente));
-        when(medioPagoRepository.findByClienteIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
+        when(multaRepository.existsByClienteIdAndEstado(5L, "PENDIENTE")).thenReturn(false);
+        when(medioPagoRepository.findByPersonaIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
                 .thenReturn(Collections.emptyList());
 
         PujaRequest request = new PujaRequest(new BigDecimal("105.00"), 1L);
 
-        assertThrows(ForbiddenException.class,
+        assertThrows(BusinessException.class,
                 () -> pujaService.realizarPujaRest(1L, 5L, request));
     }
 
@@ -168,9 +176,10 @@ class PujaServiceTest {
 
         when(itemCatalogoRepository.findById(1L)).thenReturn(Optional.of(item));
         when(clienteRepository.findById(5L)).thenReturn(Optional.of(cliente));
-        when(medioPagoRepository.findByClienteIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
+        when(multaRepository.existsByClienteIdAndEstado(5L, "PENDIENTE")).thenReturn(false);
+        when(medioPagoRepository.findByPersonaIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
                 .thenReturn(List.of(medioPago));
-        when(medioPagoRepository.findByIdAndClienteId(1L, 5L)).thenReturn(Optional.of(medioPago));
+        when(medioPagoRepository.findByIdAndPersonaId(1L, 5L)).thenReturn(Optional.of(medioPago));
         when(asistenteRepository.findByClienteIdAndSubastaId(5L, 10L))
                 .thenReturn(Optional.of(asistente));
         when(pujoRepository.existsBidInProgress(eq(1L), any(LocalDateTime.class)))
@@ -202,9 +211,10 @@ class PujaServiceTest {
 
         when(itemCatalogoRepository.findById(1L)).thenReturn(Optional.of(item));
         when(clienteRepository.findById(5L)).thenReturn(Optional.of(cliente));
-        when(medioPagoRepository.findByClienteIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
+        when(multaRepository.existsByClienteIdAndEstado(5L, "PENDIENTE")).thenReturn(false);
+        when(medioPagoRepository.findByPersonaIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
                 .thenReturn(List.of(medioPago));
-        when(medioPagoRepository.findByIdAndClienteId(1L, 5L)).thenReturn(Optional.of(medioPago));
+        when(medioPagoRepository.findByIdAndPersonaId(1L, 5L)).thenReturn(Optional.of(medioPago));
         when(asistenteRepository.findByClienteIdAndSubastaId(5L, 10L))
                 .thenReturn(Optional.of(asistente));
         when(pujoRepository.existsBidInProgress(eq(1L), any(LocalDateTime.class)))
@@ -242,9 +252,10 @@ class PujaServiceTest {
 
         when(itemCatalogoRepository.findById(1L)).thenReturn(Optional.of(item));
         when(clienteRepository.findById(5L)).thenReturn(Optional.of(cliente));
-        when(medioPagoRepository.findByClienteIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
+        when(multaRepository.existsByClienteIdAndEstado(5L, "PENDIENTE")).thenReturn(false);
+        when(medioPagoRepository.findByPersonaIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
                 .thenReturn(List.of(medioPago));
-        when(medioPagoRepository.findByIdAndClienteId(1L, 5L)).thenReturn(Optional.of(medioPago));
+        when(medioPagoRepository.findByIdAndPersonaId(1L, 5L)).thenReturn(Optional.of(medioPago));
         when(asistenteRepository.findByClienteIdAndSubastaId(5L, 10L))
                 .thenReturn(Optional.of(asistente));
         when(pujoRepository.existsBidInProgress(eq(1L), any(LocalDateTime.class)))

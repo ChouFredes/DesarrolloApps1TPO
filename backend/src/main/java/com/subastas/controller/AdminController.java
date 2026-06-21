@@ -1,6 +1,9 @@
 package com.subastas.controller;
 
 import com.subastas.dto.request.GenerarMultaRequest;
+import com.subastas.dto.response.ArticuloUsuarioResponse;
+import com.subastas.dto.response.LoteResponse;
+import com.subastas.dto.response.MedioPagoResponse;
 import com.subastas.dto.response.MultaResponse;
 import com.subastas.dto.response.VendedorPendienteResponse;
 import com.subastas.service.AdminService;
@@ -24,6 +27,10 @@ public class AdminController {
 
     private final AdminService adminService;
     private final MultaService multaService;
+
+    // =====================================================================
+    // Usuarios
+    // =====================================================================
 
     @PostMapping("/usuarios/{id}/admitir")
     public ResponseEntity<Map<String, String>> admitirUsuario(@PathVariable Long id) {
@@ -49,6 +56,19 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("mensaje", "Categoría actualizada"));
     }
 
+    @PostMapping("/usuarios/validar-dni")
+    public ResponseEntity<Map<String, String>> validarPorDni(
+            @RequestParam String documento,
+            @RequestParam String categoria) {
+        log.info("POST /admin/usuarios/validar-dni — documento={}, categoria={}", documento, categoria);
+        adminService.validarPorDni(documento, categoria);
+        return ResponseEntity.ok(Map.of("mensaje", "Usuario validado con éxito"));
+    }
+
+    // =====================================================================
+    // Vendedores
+    // =====================================================================
+
     @GetMapping("/vendedores/pendientes")
     public ResponseEntity<List<VendedorPendienteResponse>> vendedoresPendientes() {
         log.info("GET /admin/vendedores/pendientes");
@@ -72,6 +92,17 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("mensaje", "Vendedor rechazado"));
     }
 
+    // =====================================================================
+    // Medios de pago
+    // =====================================================================
+
+    /** Lista medios de pago pendientes de verificación (para el panel admin). */
+    @GetMapping("/mediosPago/pendientes")
+    public ResponseEntity<List<MedioPagoResponse>> mediosPagoPendientes() {
+        log.info("GET /admin/mediosPago/pendientes");
+        return ResponseEntity.ok(adminService.listarMediosPagoPendientes());
+    }
+
     @PostMapping("/mediosPago/{id}/verificar")
     public ResponseEntity<Map<String, String>> verificarMedioPago(@PathVariable Long id) {
         log.info("POST /admin/mediosPago/{}/verificar", id);
@@ -79,13 +110,40 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("mensaje", "Medio de pago verificado"));
     }
 
+    // =====================================================================
+    // Artículos — flujo de inspección
+    // =====================================================================
+
+    /** Lista artículos pendientes de inspección. */
+    @GetMapping("/articulos/pendientes")
+    public ResponseEntity<List<ArticuloUsuarioResponse>> articulosPendientes() {
+        log.info("GET /admin/articulos/pendientes");
+        return ResponseEntity.ok(adminService.listarArticulosPendientes());
+    }
+
+    /** Lista las subastas (lotes) con ítems pendientes de inspección/propuesta. */
+    @GetMapping("/lotes/pendientes")
+    public ResponseEntity<List<LoteResponse>> lotesPendientes() {
+        log.info("GET /admin/lotes/pendientes");
+        return ResponseEntity.ok(adminService.listarLotesPendientes());
+    }
+
+    /** Detalle de una subasta con todos sus ítems (para operar ítem por ítem). */
+    @GetMapping("/lotes/{loteId}")
+    public ResponseEntity<LoteResponse> obtenerLote(@PathVariable Long loteId) {
+        log.info("GET /admin/lotes/{}", loteId);
+        return ResponseEntity.ok(adminService.obtenerLote(loteId));
+    }
+
+    /** Admin acepta la inspección física → artículo pasa a 'inspeccion_aprobada'. */
     @PostMapping("/articulos/{id}/aceptar")
     public ResponseEntity<Map<String, String>> aceptarArticulo(@PathVariable Long id) {
         log.info("POST /admin/articulos/{}/aceptar", id);
-        adminService.aceptarArticulo(id);
-        return ResponseEntity.ok(Map.of("mensaje", "Artículo aceptado"));
+        adminService.aceptarInspeccionArticulo(id);
+        return ResponseEntity.ok(Map.of("mensaje", "Artículo aceptado en inspección"));
     }
 
+    /** Admin rechaza el artículo con un motivo visible para el usuario. */
     @PostMapping("/articulos/{id}/rechazar")
     public ResponseEntity<Map<String, String>> rechazarArticulo(
             @PathVariable Long id,
@@ -96,6 +154,7 @@ public class AdminController {
         return ResponseEntity.ok(Map.of("mensaje", "Artículo rechazado"));
     }
 
+    /** Admin propone precio base y comisión → artículo pasa a 'propuesta_enviada'. */
     @PostMapping("/articulos/{id}/precio-base")
     public ResponseEntity<Map<String, String>> proponerPrecioBase(
             @PathVariable Long id,
@@ -104,7 +163,7 @@ public class AdminController {
         BigDecimal comision = new BigDecimal(body.get("comision").toString());
         log.info("POST /admin/articulos/{}/precio-base — precioBase={}, comision={}", id, precioBase, comision);
         adminService.proponerPrecioBase(id, precioBase, comision);
-        return ResponseEntity.ok(Map.of("mensaje", "Precio base propuesto"));
+        return ResponseEntity.ok(Map.of("mensaje", "Propuesta de precio enviada al usuario"));
     }
 
     @PutMapping("/articulos/{id}/deposito")
@@ -123,6 +182,26 @@ public class AdminController {
         adminService.contratarSeguro(id);
         return ResponseEntity.ok(Map.of("mensaje", "Seguro contratado"));
     }
+
+    /** Ítems aceptados por el vendedor y asegurados, listos para que la empresa los arme en una subasta. */
+    @GetMapping("/articulos/listos")
+    public ResponseEntity<List<com.subastas.dto.response.ItemListoResponse>> itemsListos() {
+        log.info("GET /admin/articulos/listos");
+        return ResponseEntity.ok(adminService.listarItemsListos());
+    }
+
+    /** La empresa arma una subasta seleccionando ítems listos (de uno o varios dueños) y su duración. */
+    @PostMapping("/subastas/armar")
+    public ResponseEntity<Map<String, String>> armarSubasta(
+            @jakarta.validation.Valid @RequestBody com.subastas.dto.request.ArmarSubastaRequest request) {
+        log.info("POST /admin/subastas/armar — items={}, categoria={}", request.itemIds(), request.categoria());
+        adminService.armarSubasta(request);
+        return ResponseEntity.ok(Map.of("mensaje", "Subasta armada"));
+    }
+
+    // =====================================================================
+    // Items y Subastas
+    // =====================================================================
 
     @PostMapping("/items/{itemId}/cerrar")
     public ResponseEntity<Map<String, String>> cerrarItem(@PathVariable Long itemId) {
@@ -144,19 +223,14 @@ public class AdminController {
         return ResponseEntity.status(HttpStatus.CREATED).body(Map.of("mensaje", "Venta registrada"));
     }
 
+    // =====================================================================
+    // Multas
+    // =====================================================================
+
     @PostMapping("/multas")
     public ResponseEntity<MultaResponse> generarMulta(@Valid @RequestBody GenerarMultaRequest request) {
         log.info("POST /admin/multas — clienteId={}", request.clienteId());
         MultaResponse multa = multaService.generarMulta(request);
         return ResponseEntity.status(HttpStatus.CREATED).body(multa);
-    }
-
-    @PostMapping("/usuarios/validar-dni")
-    public ResponseEntity<Map<String, String>> validarPorDni(
-            @RequestParam String documento,
-            @RequestParam String categoria) {
-        log.info("POST /admin/usuarios/validar-dni — documento={}, categoria={}", documento, categoria);
-        adminService.validarPorDni(documento, categoria);
-        return ResponseEntity.ok(Map.of("mensaje", "Usuario validado con éxito"));
     }
 }

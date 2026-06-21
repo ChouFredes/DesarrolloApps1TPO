@@ -13,12 +13,18 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
-import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
 
-type Nav = StackNavigationProp<ProfileStackParamList, 'MetodosDePago'>;
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
+
+type Nav = StackNavigationProp<any, any>;
 
 type MedioTipo = 'CUENTA_BANCARIA' | 'TARJETA_CREDITO' | 'CHEQUE_CERTIFICADO';
 
@@ -30,6 +36,8 @@ interface MedioDePago {
   numeroCuenta?: string;
   numeroTarjeta?: string;
   cbu?: string;
+  estado?: string; // 'VERIFICADO' | 'PENDIENTE_VERIFICACION' | 'RECHAZADO'
+  descripcion?: string;
 }
 
 // Solid base colors (midpoint of the intended gradients)
@@ -65,13 +73,14 @@ function PaymentCard({ medio, onLongPress }: PaymentCardProps) {
   const cardColor = CARD_COLORS[medio.tipo] ?? '#333';
   const label = CARD_LABELS[medio.tipo] ?? medio.tipo;
   const accountDisplay = maskNumber(medio.numeroCuenta ?? medio.numeroTarjeta ?? medio.cbu);
+  const isPendiente = medio.estado === 'PENDIENTE_VERIFICACION';
 
   return (
     <TouchableOpacity onLongPress={onLongPress} activeOpacity={0.85} style={styles.cardTouchable}>
       <View
         style={[
           styles.paymentCard,
-          { width: CARD_WIDTH, height: CARD_HEIGHT, backgroundColor: cardColor },
+          { width: CARD_WIDTH, height: CARD_HEIGHT, backgroundColor: isPendiente ? '#555' : cardColor },
         ]}
       >
         <View style={styles.cardTopRow}>
@@ -79,9 +88,21 @@ function PaymentCard({ medio, onLongPress }: PaymentCardProps) {
           <MaterialCommunityIcons name="credit-card-outline" size={18} color="rgba(255,255,255,0.7)" />
         </View>
         <Text style={styles.cardAccountNumber}>{accountDisplay}</Text>
-        <Text style={styles.cardHolder} numberOfLines={1}>
-          {medio.titular ?? '—'}
-        </Text>
+        <View style={styles.cardBottomRow}>
+          <Text style={styles.cardHolder} numberOfLines={1}>
+            {medio.titular ?? (medio.descripcion ?? '—')}
+          </Text>
+          {isPendiente && (
+            <View style={styles.pendienteBadge}>
+              <Text style={styles.pendienteBadgeText}>Pendiente</Text>
+            </View>
+          )}
+          {!isPendiente && medio.estado === 'VERIFICADO' && (
+            <View style={styles.verificadoBadge}>
+              <Ionicons name="checkmark" size={10} color="#fff" />
+            </View>
+          )}
+        </View>
       </View>
     </TouchableOpacity>
   );
@@ -190,6 +211,15 @@ export function MetodosDePagoScreen() {
         </View>
       ) : (
         <View style={styles.content}>
+          {/* Aviso si hay medios pendientes */}
+          {medios.some((m) => m.estado === 'PENDIENTE_VERIFICACION') && (
+            <View style={styles.pendienteInfo}>
+              <Ionicons name="information-circle-outline" size={18} color="#F5C542" />
+              <Text style={styles.pendienteInfoText}>
+                Uno o más métodos de pago están pendientes de verificación por el administrador. Mientras no estén aprobados, no podrás pujar en subastas.
+              </Text>
+            </View>
+          )}
           <Text style={styles.hint}>Mantené presionada una tarjeta para eliminarla</Text>
           <FlatList
             data={rows}
@@ -305,6 +335,49 @@ const styles = StyleSheet.create({
   cardHolder: {
     color: 'rgba(255,255,255,0.75)',
     fontSize: 11,
+    flex: 1,
+  },
+  cardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  pendienteBadge: {
+    backgroundColor: '#D97706',
+    borderRadius: 4,
+    paddingHorizontal: 4,
+    paddingVertical: 1,
+  },
+  pendienteBadgeText: {
+    color: '#fff',
+    fontSize: 8,
+    fontWeight: '700',
+  },
+  verificadoBadge: {
+    backgroundColor: '#10B981',
+    borderRadius: 8,
+    width: 14,
+    height: 14,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  pendienteInfo: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 8,
+    backgroundColor: '#0D1E33',
+    borderLeftWidth: 3,
+    borderLeftColor: '#F5C542',
+    borderRadius: 10,
+    padding: 12,
+    marginHorizontal: 16,
+    marginBottom: 8,
+  },
+  pendienteInfoText: {
+    flex: 1,
+    fontSize: 12,
+    color: '#F5C542',
+    lineHeight: 18,
   },
   emptySlot: {
     borderRadius: borderRadius.md,

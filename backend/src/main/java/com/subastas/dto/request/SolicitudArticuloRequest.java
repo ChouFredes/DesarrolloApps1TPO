@@ -9,7 +9,7 @@ import java.util.List;
 public record SolicitudArticuloRequest(
         @NotBlank String descripcion,
         String descripcionCompleta,
-        @NotNull @Size(min = 6) List<@NotBlank String> fotosUrls,
+        @NotNull @Size(min = 1) List<@NotBlank String> fotosUrls,
         String datosHistoricos,
         String artista,
         @NotNull Boolean declaraPropiedad,

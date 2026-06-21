@@ -6,13 +6,18 @@ import { useAuthStore } from '../stores/authStore';
 import { VendedorEsperaScreen } from '../screens/VendedorEsperaScreen';
 import { VendedorHomeScreen } from '../screens/VendedorHomeScreen';
 import { VendedorPerfilScreen } from '../screens/VendedorPerfilScreen';
-import { MisArticulosScreen } from '../screens/MisArticulosScreen';
+import { MisSubastasScreen } from '../screens/MisSubastasScreen';
+import { SubastaDetalleVendedorScreen } from '../screens/SubastaDetalleVendedorScreen';
 import { ArticuloDetailScreen } from '../screens/ArticuloDetailScreen';
 import { EstadoArticuloScreen } from '../screens/EstadoArticuloScreen';
 import { SolicitarArticuloScreen } from '../screens/SolicitarArticuloScreen';
+import { InformacionPersonalScreen } from '../screens/InformacionPersonalScreen';
+import { MetodosDePagoScreen } from '../screens/MetodosDePagoScreen';
+import { AgregarMedioPagoScreen } from '../screens/AgregarMedioPagoScreen';
 
 export type VendedorItemsStackParamList = {
-  MisArticulos: undefined;
+  MisSubastas: undefined;
+  SubastaDetalleVendedor: { loteId: number };
   ArticuloDetalle: { articuloId: number };
   EstadoArticulo: { articuloId: number };
   SolicitarArticulo: undefined;
@@ -33,11 +38,42 @@ function VendedorItemsStackNavigator() {
         cardStyleInterpolator: customInterpolator,
       }}
     >
-      <ItemsStack.Screen name="MisArticulos" component={MisArticulosScreen} />
+      <ItemsStack.Screen name="MisSubastas" component={MisSubastasScreen} />
+      <ItemsStack.Screen name="SubastaDetalleVendedor" component={SubastaDetalleVendedorScreen} />
       <ItemsStack.Screen name="ArticuloDetalle" component={ArticuloDetailScreen} />
       <ItemsStack.Screen name="EstadoArticulo" component={EstadoArticuloScreen} />
       <ItemsStack.Screen name="SolicitarArticulo" component={SolicitarArticuloScreen} />
     </ItemsStack.Navigator>
+  );
+}
+
+export type VendedorPerfilStackParamList = {
+  VendedorPerfil: undefined;
+  InformacionPersonal: undefined;
+  MetodosDePago: undefined;
+  AgregarMedioPago: undefined;
+};
+
+const PerfilStack = createStackNavigator<VendedorPerfilStackParamList>();
+
+function VendedorPerfilStackNavigator() {
+  const customInterpolator = ({ current }: any) => ({
+    cardStyle: { opacity: current.progress },
+  });
+  return (
+    <PerfilStack.Navigator
+      screenOptions={{
+        headerShown: false,
+        gestureEnabled: true,
+        gestureDirection: 'horizontal',
+        cardStyleInterpolator: customInterpolator,
+      }}
+    >
+      <PerfilStack.Screen name="VendedorPerfil" component={VendedorPerfilScreen} />
+      <PerfilStack.Screen name="InformacionPersonal" component={InformacionPersonalScreen} />
+      <PerfilStack.Screen name="MetodosDePago" component={MetodosDePagoScreen} />
+      <PerfilStack.Screen name="AgregarMedioPago" component={AgregarMedioPagoScreen} />
+    </PerfilStack.Navigator>
   );
 }
 
@@ -87,8 +123,29 @@ export function VendedorNavigator() {
       })}
     >
       <Tab.Screen name="PanelTab" component={VendedorHomeScreen} options={{ title: 'Panel' }} />
-      <Tab.Screen name="ItemsTab" component={VendedorItemsStackNavigator} options={{ title: 'Mis Ítems' }} />
-      <Tab.Screen name="PerfilTab" component={VendedorPerfilScreen} options={{ title: 'Perfil' }} />
+      <Tab.Screen 
+        name="ItemsTab" 
+        component={VendedorItemsStackNavigator} 
+        options={{ title: 'Mis Artículos' }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            // navigate al screen raíz ya popea el stack anidado hasta su base
+            navigation.navigate('ItemsTab', { screen: 'MisSubastas' });
+          },
+        })}
+      />
+      <Tab.Screen 
+        name="PerfilTab" 
+        component={VendedorPerfilStackNavigator} 
+        options={{ title: 'Perfil' }}
+        listeners={({ navigation }) => ({
+          tabPress: (e) => {
+            e.preventDefault();
+            navigation.navigate('PerfilTab', { screen: 'VendedorPerfil' });
+          },
+        })}
+      />
     </Tab.Navigator>
   );
 }

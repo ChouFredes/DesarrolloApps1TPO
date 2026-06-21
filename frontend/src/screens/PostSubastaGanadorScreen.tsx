@@ -7,10 +7,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import axios from 'axios';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { HomeStackParamList } from '../navigation/HomeStackNavigator';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 type RouteType = RouteProp<HomeStackParamList, 'PostSubastaGanador'>;
 
@@ -293,7 +300,7 @@ export function PostSubastaGanadorScreen() {
           activeOpacity={0.85}
         >
           {pagando
-            ? <ActivityIndicator color="#fff" />
+            ? <ActivityIndicator color="#0A1626" />
             : <Text style={styles.pagarText}>Confirmar pago</Text>}
         </TouchableOpacity>
       </ScrollView>
@@ -393,16 +400,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: 'rgba(245,166,35,0.12)',
+    backgroundColor: 'rgba(0,234,223,0.1)',
     borderWidth: 1,
-    borderColor: 'rgba(245,166,35,0.4)',
+    borderColor: 'rgba(0,234,223,0.4)',
     borderRadius: borderRadius.sm,
     paddingHorizontal: spacing.md,
     paddingVertical: spacing.sm,
     marginTop: spacing.xs,
   },
   desgloseHighLabel: { fontSize: 16, fontWeight: '700', color: colors.text },
-  desgloseHighValue: { fontSize: 22, fontWeight: '800', color: '#1A1A2E' },
+  desgloseHighValue: { fontSize: 22, fontWeight: '800', color: colors.accent },
 
   divider: { height: 1, backgroundColor: colors.border, marginVertical: spacing.xs },
 
@@ -425,7 +432,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    backgroundColor: '#FEE2E2',
+    backgroundColor: '#0D1E33',
+    borderLeftWidth: 3,
+    borderLeftColor: colors.error,
     borderRadius: borderRadius.sm,
     padding: spacing.sm,
   },
@@ -443,7 +452,7 @@ const styles = StyleSheet.create({
   },
   medioSelected: {
     borderColor: colors.accent,
-    backgroundColor: 'rgba(245,166,35,0.06)',
+    backgroundColor: 'rgba(0,234,223,0.08)',
   },
   medioText: { flex: 1, fontSize: 14, color: colors.text },
   noMedios: { fontSize: 13, color: colors.textSecondary },
@@ -457,5 +466,5 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   pagarBtnDisabled: { opacity: 0.7 },
-  pagarText: { color: '#fff', fontWeight: '700', fontSize: 16 },
+  pagarText: { color: '#0A1626', fontWeight: '700', fontSize: 16 },
 });

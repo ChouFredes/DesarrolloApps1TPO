@@ -1,17 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView, Alert } from 'react-native';
+import { View, Text, StyleSheet, TouchableOpacity, KeyboardAvoidingView, Platform, ScrollView } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useNavigation } from '@react-navigation/native';
-import { StackNavigationProp } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
 import { InputField } from '../components/InputField';
 import { PrimaryButton } from '../components/PrimaryButton';
 import { spacing } from '../theme';
-import { AuthStackParamList } from '../navigation/AuthNavigator';
-import { API_BASE_URL } from '../config/api';
-
-type Nav = StackNavigationProp<AuthStackParamList, 'RegisterStep1'>;
 
 const W = {
   bg: '#0F1F35',
@@ -28,53 +22,32 @@ const W = {
 
 
 export function RegisterStep1Screen() {
-  const navigation = useNavigation<Nav>();
+  const navigation = useNavigation<any>();
   const [nombre, setNombre] = useState('');
   const [apellido, setApellido] = useState('');
   const [domicilio, setDomicilio] = useState('');
   const [pais, setPais] = useState('');
   const [dni, setDni] = useState('');
-  const [password, setPassword] = useState('');
   const [accepted, setAccepted] = useState(false);
-  const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
-  const getPaisId = (p: string): number => {
-    const clean = p.trim().toLowerCase();
-    if (clean.includes('japan') || clean.includes('japón') || clean.includes('japon')) return 2;
-    if (clean.includes('spain') || clean.includes('españa') || clean.includes('espana')) return 3;
-    if (clean.includes('brasil') || clean.includes('brazil')) return 4;
-    if (clean.includes('francia') || clean.includes('france')) return 5;
-    return 1; // Default to Argentina (1)
-  };
-
-  const handleRegister = async () => {
-    if (!nombre || !apellido || !domicilio || !pais || !dni || !password) { setError('Completá todos los campos'); return; }
-    if (!accepted) { setError('Aceptá los términos y condiciones'); return; }
-    setLoading(true); setError('');
-    try {
-      const body = {
-        nombre,
-        apellido,
-        direccion: domicilio,
-        paisId: getPaisId(pais),
-        documento: dni,
-        fotoDniFrente: 'frente_placeholder',
-        fotoDniDorso: 'dorso_placeholder',
-        password,
-        tipoUsuario: 'cliente',
-      };
-      await axios.post(`${API_BASE_URL}/auth/registro/paso1`, body);
-      Alert.alert(
-        'Registro exitoso',
-        'Tu usuario fue creado correctamente. Ya podés iniciar sesión.',
-        [{ text: 'OK', onPress: () => navigation.navigate('Welcome') }]
-      );
-    } catch (e: any) {
-      setError(e.response?.data?.detalle || e.response?.data?.mensaje || e.response?.data?.message || 'Error al registrarse');
-    } finally {
-      setLoading(false);
+  const handleNext = () => {
+    if (!nombre || !apellido || !domicilio || !pais || !dni) {
+      setError('Completá todos los campos');
+      return;
     }
+    if (!accepted) {
+      setError('Aceptá los términos y condiciones');
+      return;
+    }
+    setError('');
+    navigation.navigate('RegisterPassword', {
+      nombre,
+      apellido,
+      domicilio,
+      pais,
+      dni,
+    });
   };
 
   return (
@@ -92,9 +65,8 @@ export function RegisterStep1Screen() {
           <InputField label="Domicilio" value={domicilio} onChangeText={setDomicilio} />
           <InputField label="País" value={pais} onChangeText={setPais} />
           <InputField label="DNI" value={dni} onChangeText={setDni} keyboardType="numeric" />
-          <InputField label="Contraseña" value={password} onChangeText={setPassword} isPassword />
           {error ? <Text style={styles.error}>{error}</Text> : null}
-          <PrimaryButton title="Registrate" onPress={handleRegister} loading={loading} />
+          <PrimaryButton title="Siguiente" onPress={handleNext} />
           <TouchableOpacity style={styles.termsRow} onPress={() => setAccepted(!accepted)}>
             <View style={[styles.checkbox, accepted && styles.checked]}>
               {accepted && <Ionicons name="checkmark" size={14} color="#fff" />}

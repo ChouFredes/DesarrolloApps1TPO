@@ -9,5 +9,7 @@ public record MedioPagoResponse(
         String moneda,
         String estado,
         Boolean esBancaExterior,
-        BigDecimal montoDisponible
+        BigDecimal montoDisponible,
+        String numeroCuenta,
+        String numeroTarjeta
 ) {}

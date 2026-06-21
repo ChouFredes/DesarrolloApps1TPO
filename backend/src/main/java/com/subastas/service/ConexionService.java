@@ -13,7 +13,6 @@ import com.subastas.entity.Subasta;
 import com.subastas.entity.enums.CategoriaCliente;
 import com.subastas.entity.enums.EstadoMedioPago;
 import com.subastas.entity.enums.EstadoSubasta;
-import com.subastas.exception.BusinessException;
 import com.subastas.exception.ForbiddenException;
 import com.subastas.exception.ResourceNotFoundException;
 import com.subastas.repository.AsistenteRepository;
@@ -66,14 +65,11 @@ public class ConexionService {
             throw new ForbiddenException("Lamentablemente esta subasta está por encima de tu categoría");
         }
 
-        if (!medioPagoRepository.existsByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)) {
-            throw new ForbiddenException("Medio de pago no verificado, necesario para operar");
-        }
+        boolean tieneMedioPagoVerificado = medioPagoRepository.existsByPersonaIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO);
 
-        if (asistenteRepository.existsByClienteIdAndSubastaEstado(clienteId, EstadoSubasta.abierta)
-                && asistenteRepository.findByClienteIdAndSubastaId(clienteId, subastaId).isEmpty()) {
-            throw new BusinessException("Ya está conectado a otra subasta");
-        }
+        // ponytail: se quitó el guard "una subasta a la vez". `desconectar` no borra el asistente
+        // (FK desde Pujo), así que el guard nunca se liberaba y bloqueaba entrar a cualquier otra
+        // subasta con 422. El upsert de abajo ya maneja re-entrar a la misma subasta.
 
         Asistente asistente = asistenteRepository.findByClienteIdAndSubastaId(clienteId, subastaId)
                 .orElseGet(() -> {
@@ -140,7 +136,7 @@ public class ConexionService {
         }
 
         MedioPagoResponse medioPagoSeleccionado = medioPagoRepository
-                .findByClienteIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)
+                .findByPersonaIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO)
                 .stream()
                 .findFirst()
                 .map(mp -> new MedioPagoResponse(
@@ -150,7 +146,9 @@ public class ConexionService {
                         mp.getMoneda(),
                         mp.getEstado() != null ? mp.getEstado().name() : null,
                         mp.isEsBancaExterior(),
-                        mp.getMontoCheque()
+                        mp.getMontoCheque(),
+                        mp.getNumeroCuenta(),
+                        mp.getNumeroTarjeta()
                 ))
                 .orElse(null);
 
@@ -160,7 +158,7 @@ public class ConexionService {
                 asistente.getNumeroPostor(),
                 itemActualResponse,
                 mayorOfertaActual,
-                true,
+                tieneMedioPagoVerificado,
                 pujaMinima,
                 pujaMaxima,
                 null,

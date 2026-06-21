@@ -21,13 +21,15 @@ INSERT INTO personas (identificador, tipo, nombre, apellido, documento, direccio
 (3, 'cliente',    'Ash',      'Ketchum', '33333333', 'Pueblo Paleta, Kanto',     'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
 (4, 'cliente',    'Misty',    'Kasumi',  '44444444', 'Ciudad Celeste, Kanto',    'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
 (5, 'cliente',    'Brock',    'Takeshi', '55555555', 'Ciudad Plateada, Kanto',   'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
-(6, 'cliente',    'test',     'user',    '1',        'Calle de Pruebas 123',     'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm');
+(6, 'cliente',    'test',     'user',    '1',        'Calle de Pruebas 123',     'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm'),
+(7, 'duenio',     'Vendedor', 'Base',    '123456',   'Calle Vendedor 123',       'activo', '$2a$12$QhJlMVSKTXM2pfmfrwMt1.JRHxLeieqW5D/bxcrVz0EqzzZ0WFFKm');
 
 INSERT INTO subastadores (identificador, matricula, region) VALUES
 (1, 'MAT-PKM-001', 'Kanto / Sinnoh');
 
-INSERT INTO duenios (identificador, verificacion_financiera, verificacion_judicial) VALUES
-(2, 'aprobado', 'aprobado');
+INSERT INTO duenios (identificador, verificacion_financiera, verificacion_judicial, admitido, categoria, numero_pais) VALUES
+(2, 'aprobado', 'aprobado', 'si', 'platino', 1),
+(7, 'aprobado', 'aprobado', 'si', 'platino', 1);
 
 INSERT INTO clientes (identificador, admitido, categoria, numero_pais) VALUES
 (3, 'NO', 'platino',  1),
@@ -207,7 +209,7 @@ INSERT INTO asistentes (identificador, cliente, subasta, numero_postor) VALUES
 -- MEDIOS DE PAGO (TODOS VERIFICADOS)
 -- =============================================================
 
-INSERT INTO medios_pago (id, cliente_id, tipo, moneda, estado, es_banca_exterior, numero_cuenta, banco, numero_tarjeta, vencimiento, monto_cheque) VALUES
+INSERT INTO medios_pago (id, persona_id, tipo, moneda, estado, es_banca_exterior, numero_cuenta, banco, numero_tarjeta, vencimiento, monto_cheque) VALUES
 -- Ash (3)
 (1, 3, 'TARJETA_CREDITO',    'USD', 'VERIFICADO', 0, NULL,             NULL,          '4111-1111-1111-1111', '12/29', NULL),
 (2, 3, 'CUENTA_BANCARIA',    'ARS', 'VERIFICADO', 0, '0001-2345-6789', 'Banco Kanto', NULL,                  NULL,    NULL),

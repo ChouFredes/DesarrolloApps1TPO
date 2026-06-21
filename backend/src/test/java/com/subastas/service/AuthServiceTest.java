@@ -22,6 +22,7 @@ import com.subastas.repository.TokenActivacionRepository;
 import com.subastas.security.JwtUtil;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
@@ -104,26 +105,51 @@ class AuthServiceTest {
     }
 
     @Test
-    void registrarPaso1_exitoso_retornaRegistroResponseConEstadoCompletado() {
+    void registrarPaso1_exitoso_retornaPendienteAprobacion() {
         RegistroPostorPaso1Request request = buildPaso1Request("87654321");
 
         Pais pais = new Pais();
         pais.setId(1L);
 
-        Cliente savedCliente = buildCliente("87654321", EstadoPersona.activo, "si",
-                CategoriaCliente.comun, "encoded_pwd");
+        Cliente savedCliente = buildCliente("87654321", EstadoPersona.pendiente, "no",
+                null, "encoded_pass");
 
         when(personaRepository.existsByDocumento("87654321")).thenReturn(false);
         when(paisRepository.findById(1L)).thenReturn(Optional.of(pais));
-        when(passwordEncoder.encode("Pokeball1!")).thenReturn("encoded_pwd");
+        when(passwordEncoder.encode(anyString())).thenReturn("encoded_pass");
         when(personaRepository.save(any(Persona.class))).thenReturn(savedCliente);
 
         RegistroResponse response = authService.registrarPaso1(request);
 
         assertNotNull(response);
-        assertEquals("COMPLETADO", response.estado());
+        assertEquals("PENDIENTE_APROBACION", response.estado());
         assertEquals(1L, response.usuarioId());
         verify(personaRepository).save(any(Persona.class));
+    }
+
+    @Test
+    void registrarPaso1_exitoso_personaGuardadaConPassword() {
+        RegistroPostorPaso1Request request = buildPaso1Request("11223344");
+
+        Pais pais = new Pais();
+        pais.setId(1L);
+
+        Cliente savedCliente = buildCliente("11223344", EstadoPersona.pendiente, "no",
+                null, "encoded_pass");
+
+        when(personaRepository.existsByDocumento("11223344")).thenReturn(false);
+        when(paisRepository.findById(1L)).thenReturn(Optional.of(pais));
+        when(passwordEncoder.encode("Pokeball1!")).thenReturn("encoded_pass");
+        when(personaRepository.save(any(Persona.class))).thenReturn(savedCliente);
+
+        ArgumentCaptor<Persona> personaCaptor = ArgumentCaptor.forClass(Persona.class);
+
+        authService.registrarPaso1(request);
+
+        verify(personaRepository).save(personaCaptor.capture());
+        Persona captured = personaCaptor.getValue();
+        assertEquals(EstadoPersona.pendiente, captured.getEstado());
+        assertEquals("encoded_pass", captured.getPassword());
     }
 
     // -----------------------------------------------------------------------
@@ -184,6 +210,30 @@ class AuthServiceTest {
         assertEquals("refresh-token-xyz", response.refreshToken());
         assertEquals(1L, response.usuarioId());
         assertEquals("comun", response.categoria());
+        verify(refreshTokenRepository).save(any(RefreshToken.class));
+    }
+
+    @Test
+    void login_clienteConCategoriaNula_noLanzaExcepcionYRetornaCategoriaNull() {
+        LoginRequest request = new LoginRequest("99887766", "correctPassword");
+
+        // Cliente activo, admitido, pero sin categoria asignada aún
+        Cliente cliente = buildCliente("99887766", EstadoPersona.activo, "si",
+                null, "$2a$12$hashedpassword");
+
+        when(personaRepository.findByDocumento("99887766")).thenReturn(Optional.of(cliente));
+        when(passwordEncoder.matches("correctPassword", "$2a$12$hashedpassword")).thenReturn(true);
+        when(jwtUtil.generateAccessToken(cliente)).thenReturn("access-token-null-cat");
+        when(jwtUtil.generateRefreshToken(1L)).thenReturn("refresh-token-null-cat");
+        when(refreshTokenRepository.save(any(RefreshToken.class)))
+                .thenAnswer(inv -> inv.getArgument(0));
+
+        // Must not throw NullPointerException
+        LoginResponse response = assertDoesNotThrow(() -> authService.login(request));
+
+        assertNotNull(response);
+        assertNull(response.categoria());
+        assertEquals("si", response.admitido());
         verify(refreshTokenRepository).save(any(RefreshToken.class));
     }
 }

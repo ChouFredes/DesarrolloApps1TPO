@@ -2,13 +2,13 @@ package com.subastas.service;
 
 import com.subastas.dto.request.MedioPagoRequest;
 import com.subastas.dto.response.MedioPagoResponse;
-import com.subastas.entity.Cliente;
 import com.subastas.entity.MedioPago;
+import com.subastas.entity.Persona;
 import com.subastas.entity.enums.EstadoMedioPago;
 import com.subastas.entity.enums.TipoMedioPago;
 import com.subastas.exception.ResourceNotFoundException;
-import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.MedioPagoRepository;
+import com.subastas.repository.PersonaRepository;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -20,10 +20,10 @@ import java.util.List;
 public class MedioPagoService {
 
     private final MedioPagoRepository medioPagoRepository;
-    private final ClienteRepository clienteRepository;
+    private final PersonaRepository personaRepository;
 
     public List<MedioPagoResponse> listar(Long clienteId) {
-        return medioPagoRepository.findByClienteId(clienteId)
+        return medioPagoRepository.findByPersonaId(clienteId)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -31,14 +31,14 @@ public class MedioPagoService {
 
     @Transactional
     public MedioPagoResponse registrar(Long clienteId, MedioPagoRequest request) {
-        Cliente cliente = clienteRepository.findById(clienteId)
-                .orElseThrow(() -> new ResourceNotFoundException("Cliente", "id", clienteId));
+        Persona persona = personaRepository.findById(clienteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Persona", "id", clienteId));
 
         MedioPago medio = new MedioPago();
-        medio.setCliente(cliente);
+        medio.setPersona(persona);
         medio.setTipo(request.tipo());
         medio.setMoneda(request.moneda());
-        medio.setEstado(EstadoMedioPago.VERIFICADO);
+        medio.setEstado(EstadoMedioPago.PENDIENTE_VERIFICACION);
         medio.setEsBancaExterior(Boolean.TRUE.equals(request.esBancaExterior()));
         medio.setNumeroCuenta(request.numeroCuenta());
         medio.setBanco(request.banco());
@@ -53,7 +53,7 @@ public class MedioPagoService {
     @Transactional
     public void eliminar(Long clienteId, Long medioId) {
         MedioPago medio = medioPagoRepository.findById(medioId)
-                .filter(m -> m.getCliente().getId().equals(clienteId))
+                .filter(m -> m.getPersona().getId().equals(clienteId))
                 .orElseThrow(() -> new ResourceNotFoundException("MedioPago", "id", medioId));
 
         medioPagoRepository.delete(medio);
@@ -68,7 +68,9 @@ public class MedioPagoService {
                 medio.getMoneda(),
                 medio.getEstado().name(),
                 medio.isEsBancaExterior(),
-                medio.getMontoCheque()
+                medio.getMontoCheque(),
+                medio.getNumeroCuenta(),
+                medio.getNumeroTarjeta()
         );
     }
 

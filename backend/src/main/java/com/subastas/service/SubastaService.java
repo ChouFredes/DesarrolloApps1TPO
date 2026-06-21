@@ -91,17 +91,11 @@ public class SubastaService {
 
     private String imagenFor(Subasta s) {
         if (s == null) return null;
+        // La portada la define la empresa al armar la subasta; sin stock de imágenes.
         if (s.getFotoPortada() != null) {
             return "/subastas/" + s.getId() + "/portada";
         }
-        CategoriaSubasta cat = s.getCategoria();
-        if (cat == null) return null;
-        return switch (cat) {
-            case pokemon           -> "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/6.png";
-            case maquinas_tecnicas -> "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/149.png";
-            case pociones          -> "https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/39.png";
-            default                -> null;
-        };
+        return null;
     }
 
     @Transactional(readOnly = true)

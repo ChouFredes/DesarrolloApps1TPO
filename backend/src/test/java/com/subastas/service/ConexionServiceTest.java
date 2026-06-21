@@ -7,7 +7,6 @@ import com.subastas.entity.Subasta;
 import com.subastas.entity.enums.EstadoMedioPago;
 import com.subastas.entity.enums.EstadoPersona;
 import com.subastas.entity.enums.EstadoSubasta;
-import com.subastas.exception.BusinessException;
 import com.subastas.exception.ForbiddenException;
 import com.subastas.exception.ResourceNotFoundException;
 import com.subastas.repository.AsistenteRepository;
@@ -110,38 +109,26 @@ class ConexionServiceTest {
     }
 
     @Test
-    void conectar_sinMediosPagoVerificados_lanzaForbiddenException() {
+    void conectar_sinMediosPagoVerificados_retornaPuedeOfertarFalse() {
         Subasta subasta = buildSubasta(1L, EstadoSubasta.abierta);
         Cliente cliente = buildCliente(5L);
+        Asistente asistente = buildAsistente(10L, cliente, subasta);
 
         when(subastaRepository.findById(1L)).thenReturn(Optional.of(subasta));
         when(clienteRepository.findById(5L)).thenReturn(Optional.of(cliente));
-        when(medioPagoRepository.existsByClienteIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
+        when(medioPagoRepository.existsByPersonaIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
                 .thenReturn(false);
-
-        assertThrows(ForbiddenException.class,
-                () -> conexionService.conectar(1L, 5L));
-    }
-
-    @Test
-    void conectar_yaConectadoAOtraSubasta_lanzaBusinessException() {
-        // Client is connected to another open auction (subastaId=2) but not to this one (subastaId=1)
-        Subasta subasta = buildSubasta(1L, EstadoSubasta.abierta);
-        Cliente cliente = buildCliente(5L);
-
-        when(subastaRepository.findById(1L)).thenReturn(Optional.of(subasta));
-        when(clienteRepository.findById(5L)).thenReturn(Optional.of(cliente));
-        when(medioPagoRepository.existsByClienteIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
-                .thenReturn(true);
-        // Client already has an asistente record in some other open subasta
-        when(asistenteRepository.existsByClienteIdAndSubastaEstado(5L, EstadoSubasta.abierta))
-                .thenReturn(true);
-        // But is NOT connected to this specific subasta (id=1)
         when(asistenteRepository.findByClienteIdAndSubastaId(5L, 1L))
                 .thenReturn(Optional.empty());
+        when(asistenteRepository.countBySubastaId(1L)).thenReturn(0);
+        when(asistenteRepository.save(any(Asistente.class))).thenReturn(asistente);
+        when(itemCatalogoRepository.findFirstByCatalogoSubastaIdAndSubastado(1L, "no"))
+                .thenReturn(Optional.empty());
 
-        assertThrows(BusinessException.class,
-                () -> conexionService.conectar(1L, 5L));
+        ConexionSubastaResponse response = conexionService.conectar(1L, 5L);
+
+        assertNotNull(response);
+        assertFalse(response.puedeOfertar());
     }
 
     @Test
@@ -152,11 +139,8 @@ class ConexionServiceTest {
 
         when(subastaRepository.findById(1L)).thenReturn(Optional.of(subasta));
         when(clienteRepository.findById(5L)).thenReturn(Optional.of(cliente));
-        when(medioPagoRepository.existsByClienteIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
+        when(medioPagoRepository.existsByPersonaIdAndEstado(5L, EstadoMedioPago.VERIFICADO))
                 .thenReturn(true);
-        // Not connected to any open subasta yet
-        when(asistenteRepository.existsByClienteIdAndSubastaEstado(5L, EstadoSubasta.abierta))
-                .thenReturn(false);
         // No existing asistente for this subasta → will create one
         when(asistenteRepository.findByClienteIdAndSubastaId(5L, 1L))
                 .thenReturn(Optional.empty());
