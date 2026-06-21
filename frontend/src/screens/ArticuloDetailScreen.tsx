@@ -19,10 +19,17 @@ import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
 import axios from 'axios';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 type NavProp = StackNavigationProp<ProfileStackParamList, 'ArticuloDetalle'>;
 type RouteProps = RouteProp<ProfileStackParamList, 'ArticuloDetalle'>;
@@ -72,48 +79,48 @@ const CATEGORIES = [
 ];
 
 function StatusBadge({ estado }: { estado: ArticuloEstado }) {
-  let bgColor = '#F5F5F5';
+  let bgColor = '#152C44';
   let textColor = colors.textSecondary;
   let label = estado;
 
   switch (estado) {
     case 'ACEPTADO':
     case 'aceptado_por_usuario':
-      bgColor = '#E8F5E9';
+      bgColor = '#152C44';
       textColor = colors.success;
       label = 'Propuesta Aceptada';
       break;
     case 'RECHAZADO':
     case 'rechazado':
-      bgColor = '#FFEBEE';
+      bgColor = '#152C44';
       textColor = colors.error;
       label = 'Rechazado Físicamente';
       break;
     case 'rechazado_por_usuario':
-      bgColor = '#FFEBEE';
+      bgColor = '#152C44';
       textColor = colors.error;
       label = 'Propuesta Rechazada';
       break;
     case 'PENDIENTE':
     case 'PENDIENTE_INSPECCION':
     case 'pendiente_inspeccion':
-      bgColor = '#F5F5F5';
+      bgColor = '#152C44';
       textColor = colors.textSecondary;
       label = 'Pendiente de Inspección';
       break;
     case 'inspeccion_aprobada':
-      bgColor = '#FFF9C4';
-      textColor = '#F5A623';
+      bgColor = '#152C44';
+      textColor = '#F5C542';
       label = 'Inspección Aprobada';
       break;
     case 'propuesta_enviada':
-      bgColor = '#EDE7F6';
-      textColor = '#673AB7';
+      bgColor = '#152C44';
+      textColor = '#B98CFF';
       label = 'Propuesta de Precio Recibida';
       break;
     case 'VENDIDO':
     case 'vendido':
-      bgColor = '#E3F2FD';
+      bgColor = '#152C44';
       textColor = colors.primary;
       label = 'Vendido';
       break;
@@ -536,7 +543,7 @@ export function ArticuloDetailScreen() {
               onPress={() => setIsEditing(true)}
               activeOpacity={0.8}
             >
-              <Ionicons name="create-outline" size={18} color="#fff" />
+              <Ionicons name="create-outline" size={18} color="#0A1626" />
               <Text style={styles.modifyBtnText}>Modificar Artículo / Pedir Cambios</Text>
             </TouchableOpacity>
           </View>
@@ -594,7 +601,7 @@ export function ArticuloDetailScreen() {
         <View style={styles.actionsRow}>
           {insurance && (
             <TouchableOpacity style={styles.actionBtn} activeOpacity={0.8}>
-              <MaterialCommunityIcons name="file-document-outline" size={18} color="#fff" />
+              <MaterialCommunityIcons name="file-document-outline" size={18} color="#0A1626" />
               <Text style={styles.actionBtnText}>Ver póliza</Text>
             </TouchableOpacity>
           )}
@@ -651,7 +658,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: borderRadius.xl,
   },
-  retryText: { color: '#fff', fontWeight: '600' },
+  retryText: { color: '#0A1626', fontWeight: '600' },
   scrollContent: {
     paddingHorizontal: spacing.base,
     paddingBottom: spacing.xxl,
@@ -757,7 +764,7 @@ const styles = StyleSheet.create({
     borderColor: colors.primary,
   },
   actionBtnText: {
-    color: '#fff',
+    color: '#0A1626',
     fontSize: 14,
     fontWeight: '600',
   },
@@ -767,12 +774,14 @@ const styles = StyleSheet.create({
 
   // Proposal card styles
   proposalCard: {
-    backgroundColor: '#EDE7F6',
+    backgroundColor: '#0D1E33',
     borderRadius: borderRadius.md,
     padding: spacing.base,
     marginBottom: spacing.base,
     borderWidth: 1,
-    borderColor: '#D1C4E9',
+    borderColor: '#B98CFF',
+    borderLeftWidth: 3,
+    borderLeftColor: '#B98CFF',
     ...shadows.card,
     gap: spacing.sm,
   },
@@ -784,15 +793,15 @@ const styles = StyleSheet.create({
   proposalCardTitle: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#673AB7',
+    color: '#B98CFF',
   },
   proposalCardSubtitle: {
     fontSize: 13,
-    color: '#512DA8',
+    color: '#B98CFF',
     lineHeight: 18,
   },
   proposalDetails: {
-    backgroundColor: '#fff',
+    backgroundColor: '#0A1626',
     borderRadius: borderRadius.sm,
     padding: spacing.md,
     marginVertical: spacing.xs,
@@ -837,7 +846,7 @@ const styles = StyleSheet.create({
   rejectProposalBtn: {
     borderWidth: 1.5,
     borderColor: colors.error,
-    backgroundColor: '#fff',
+    backgroundColor: '#0D1E33',
   },
   rejectProposalText: {
     fontSize: 13,
@@ -847,17 +856,19 @@ const styles = StyleSheet.create({
 
   // Rejection styles
   rejectionCard: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#0D1E33',
     borderRadius: borderRadius.md,
     padding: spacing.base,
     marginBottom: spacing.base,
     borderWidth: 1,
-    borderColor: '#FFCDD2',
+    borderColor: '#FF6B6B',
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF6B6B',
     ...shadows.card,
     gap: spacing.sm,
   },
   rejectionReasonContainer: {
-    backgroundColor: '#fff',
+    backgroundColor: '#0A1626',
     borderRadius: borderRadius.sm,
     padding: spacing.md,
     marginVertical: spacing.xs,
@@ -876,7 +887,7 @@ const styles = StyleSheet.create({
   },
   rejectionExplanation: {
     fontSize: 13,
-    color: '#C62828',
+    color: '#FF6B6B',
     lineHeight: 18,
   },
   modifyBtn: {
@@ -893,7 +904,7 @@ const styles = StyleSheet.create({
   modifyBtnText: {
     fontSize: 13,
     fontWeight: '700',
-    color: '#fff',
+    color: '#0A1626',
   },
 
   // Edit form styles
@@ -954,7 +965,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   categoryPillTextSelected: {
-    color: '#fff',
+    color: '#0A1626',
   },
   editActions: {
     flexDirection: 'row',

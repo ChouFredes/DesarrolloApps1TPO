@@ -10,9 +10,16 @@ import {
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 type NotificationType =
   | 'RESULTADO_COMPRA'
@@ -62,24 +69,24 @@ function getIconConfig(tipo: NotificationType): IconConfig {
   switch (tipo) {
     case 'RESULTADO_COMPRA':
       // Trofeo dorado — el usuario ganó
-      return { library: 'Ionicons', name: 'trophy', bgColor: '#FFF8E7', iconColor: colors.accent };
+      return { library: 'Ionicons', name: 'trophy', bgColor: '#152C44', iconColor: colors.accent };
     case 'MULTA_PENDIENTE':
       // Warning rojo
-      return { library: 'Ionicons', name: 'warning', bgColor: '#FFEBEE', iconColor: colors.error };
+      return { library: 'Ionicons', name: 'warning', bgColor: '#152C44', iconColor: colors.error };
     case 'ARTICULO_ACEPTADO':
       // Checkmark verde
-      return { library: 'Ionicons', name: 'checkmark-circle', bgColor: '#E8F5E9', iconColor: colors.success };
+      return { library: 'Ionicons', name: 'checkmark-circle', bgColor: '#152C44', iconColor: colors.success };
     case 'ARTICULO_RECHAZADO':
-      return { library: 'Ionicons', name: 'close-circle', bgColor: '#FFEBEE', iconColor: colors.error };
+      return { library: 'Ionicons', name: 'close-circle', bgColor: '#152C44', iconColor: colors.error };
     case 'CUENTA_ACTIVADA':
       // Person-check azul/primario
-      return { library: 'MaterialCommunityIcons', name: 'account-check', bgColor: '#E3F2FD', iconColor: colors.primary };
+      return { library: 'MaterialCommunityIcons', name: 'account-check', bgColor: '#152C44', iconColor: colors.primary };
     case 'PAGO_REQUERIDO':
-      return { library: 'MaterialCommunityIcons', name: 'cash', bgColor: '#FFF3E0', iconColor: colors.accent };
+      return { library: 'MaterialCommunityIcons', name: 'cash', bgColor: '#152C44', iconColor: colors.accent };
     case 'BIEN_DEVUELTO':
-      return { library: 'MaterialCommunityIcons', name: 'package-variant', bgColor: '#F5F5F5', iconColor: colors.textSecondary };
+      return { library: 'MaterialCommunityIcons', name: 'package-variant', bgColor: '#152C44', iconColor: colors.textSecondary };
     default:
-      return { library: 'Ionicons', name: 'notifications', bgColor: '#F5F5F5', iconColor: colors.textSecondary };
+      return { library: 'Ionicons', name: 'notifications', bgColor: '#152C44', iconColor: colors.textSecondary };
   }
 }
 
@@ -271,7 +278,7 @@ const styles = StyleSheet.create({
     color: colors.textSecondary,
   },
   pillTextActive: {
-    color: '#fff',
+    color: '#0A1626',
   },
   listContent: {
     paddingHorizontal: spacing.base,
@@ -288,7 +295,9 @@ const styles = StyleSheet.create({
     ...shadows.card,
   },
   cardUnread: {
-    backgroundColor: '#FFFBF5',
+    backgroundColor: '#152C44',
+    borderLeftWidth: 3,
+    borderLeftColor: '#00EADF',
   },
   iconCircle: {
     width: 44,
@@ -344,7 +353,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: borderRadius.xl,
   },
-  retryText: { color: '#fff', fontWeight: '600' },
+  retryText: { color: '#0A1626', fontWeight: '600' },
   emptyState: {
     alignItems: 'center',
     paddingTop: 60,

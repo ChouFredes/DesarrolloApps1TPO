@@ -9,5 +9,7 @@ public record LoteResponse(
         String fotoPortadaUrl,
         LocalDateTime fechaCreacion,
         String estado,
-        List<ArticuloUsuarioResponse> items
+        List<ArticuloUsuarioResponse> items,
+        String categoria,
+        String duenioNombre
 ) {}

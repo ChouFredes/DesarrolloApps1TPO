@@ -94,7 +94,7 @@ class ArticuloServiceLoteTest {
         when(duenioRepository.findById(1L)).thenReturn(Optional.of(duenio));
 
         LoteRequest request = new LoteRequest(
-                "Mi lote", null, null,
+                "Mi lote", null, null, "joyas",
                 List.of(buildItem("Item 1", 6, "joyas")));
 
         assertThrows(BusinessException.class,
@@ -116,7 +116,7 @@ class ArticuloServiceLoteTest {
         });
 
         LoteRequest request = new LoteRequest(
-                "Mi lote", null, null,
+                "Mi lote", null, null, "joyas",
                 List.of(buildItem("Item con pocas fotos", 0, "joyas")));
 
         assertThrows(BusinessException.class,
@@ -156,6 +156,7 @@ class ArticuloServiceLoteTest {
                 "Lote de joyas",
                 "data:image/jpeg;base64,cG9ydGFkYQ==",
                 null,
+                "joyas",
                 List.of(
                         buildItem("Anillo", 6, "joyas"),
                         buildItem("Collar", 6, "arte")));
@@ -193,7 +194,7 @@ class ArticuloServiceLoteTest {
         producto.setMotivoRechazo("Mal estado");
 
         com.subastas.dto.request.ModificarArticuloRequest request = new com.subastas.dto.request.ModificarArticuloRequest(
-                "Anillo Modificado", "Nueva desc completa", "joyas"
+                "Anillo Modificado", "Nueva desc completa", "joyas", null
         );
 
         when(productoRepository.findByIdAndDuenioId(10L, 1L)).thenReturn(Optional.of(producto));
@@ -210,13 +211,36 @@ class ArticuloServiceLoteTest {
     }
 
     @Test
-    void actualizarArticulo_articuloNoRechazado_lanzaBusinessException() {
+    void actualizarArticulo_itemPendienteInspeccion_sePuedeEditar() {
         Producto producto = new Producto();
         producto.setId(10L);
         producto.setDisponible("pendiente_inspeccion");
 
         com.subastas.dto.request.ModificarArticuloRequest request = new com.subastas.dto.request.ModificarArticuloRequest(
-                "Anillo Modificado", "Nueva desc completa", "joyas"
+                "Anillo editado", "Otra desc", "joyas", null
+        );
+
+        when(productoRepository.findByIdAndDuenioId(10L, 1L)).thenReturn(Optional.of(producto));
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(fotoRepository.findByProductoId(10L)).thenReturn(List.of());
+
+        var response = articuloService.actualizarArticulo(1L, 10L, request);
+
+        assertNotNull(response);
+        assertEquals("Anillo editado", response.descripcion());
+        assertEquals("pendiente_inspeccion", response.estado());
+        verify(productoRepository, times(1)).save(producto);
+    }
+
+    @Test
+    void actualizarArticulo_articuloConPropuestaEnviada_lanzaBusinessException() {
+        // Una vez que la empresa propuso precio, el ítem ya no se puede editar.
+        Producto producto = new Producto();
+        producto.setId(10L);
+        producto.setDisponible("propuesta_enviada");
+
+        com.subastas.dto.request.ModificarArticuloRequest request = new com.subastas.dto.request.ModificarArticuloRequest(
+                "Anillo Modificado", "Nueva desc completa", "joyas", null
         );
 
         when(productoRepository.findByIdAndDuenioId(10L, 1L)).thenReturn(Optional.of(producto));

@@ -47,6 +47,8 @@ interface MedioPago {
   tipo: string;
   alias?: string;
   numero?: string;
+  estado?: string;
+  descripcion?: string;
 }
 
 interface FotoSeleccionada {
@@ -58,7 +60,6 @@ interface ItemDraft {
   id: string; // local uuid
   descripcion: string;
   valorEstimado: string;
-  categoria: string | null;
   fotos: FotoSeleccionada[];
 }
 
@@ -70,7 +71,7 @@ function makeId() {
 }
 
 function emptyDraft(): ItemDraft {
-  return { id: makeId(), descripcion: '', valorEstimado: '', categoria: null, fotos: [] };
+  return { id: makeId(), descripcion: '', valorEstimado: '', fotos: [] };
 }
 
 // ─── Component ──────────────────────────────────────────────────────────────
@@ -88,6 +89,7 @@ export function SolicitarArticuloScreen() {
   const [declaracion, setDeclaracion] = useState(false);
   const [submitting, setSubmitting] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
+  const [categoria, setCategoria] = useState<string | null>(null);
 
   // — Items list —
   const [items, setItems] = useState<ItemDraft[]>([]);
@@ -231,7 +233,6 @@ export function SolicitarArticuloScreen() {
     ) {
       errs.valorEstimado = 'Ingresá un valor estimado válido.';
     }
-    if (!editingDraft.categoria) errs.categoria = 'Seleccioná una categoría.';
     if (editingDraft.fotos.length < MIN_PHOTOS) {
       errs.fotos = `Debés adjuntar al menos ${MIN_PHOTOS} fotos.`;
     }
@@ -251,6 +252,9 @@ export function SolicitarArticuloScreen() {
   const validate = (): boolean => {
     const newErrors: Record<string, string> = {};
     if (!titulo.trim()) newErrors.titulo = 'El título de la subasta es requerido.';
+    if (!categoria) {
+      newErrors.categoria = 'Seleccioná una categoría para la subasta.';
+    }
     if (items.length === 0) {
       newErrors.items = 'Agregá al menos un ítem a la subasta.';
     } else if (items.length > 10) {
@@ -258,6 +262,11 @@ export function SolicitarArticuloScreen() {
     }
     if (mediosDePago.length > 0 && !cuentaDestinoId) {
       newErrors.cuenta = 'Seleccioná una cuenta destino.';
+    } else if (cuentaDestinoId) {
+      const selected = mediosDePago.find((m) => m.id === cuentaDestinoId);
+      if (selected && selected.estado === 'PENDIENTE_VERIFICACION') {
+        newErrors.cuenta = 'El medio de pago está pendiente de verificación.';
+      }
     }
     if (!declaracion) newErrors.declaracion = 'Debés aceptar la declaración de propiedad.';
     setErrors(newErrors);
@@ -266,6 +275,14 @@ export function SolicitarArticuloScreen() {
 
   // ── Submit ───────────────────────────────────────────────────────────────
   const handleSubmit = async () => {
+    const selected = mediosDePago.find((m) => m.id === cuentaDestinoId);
+    if (selected && selected.estado === 'PENDIENTE_VERIFICACION') {
+      Alert.alert(
+        'Medio de pago pendiente',
+        'El medio de pago seleccionado está pendiente de verificación. Es necesario aguardar a que se confirme este para poder subir la subasta.'
+      );
+      return;
+    }
     if (!validate()) return;
     setSubmitting(true);
     try {
@@ -275,10 +292,11 @@ export function SolicitarArticuloScreen() {
           titulo: titulo.trim(),
           fotoPortadaUrl: portada?.dataUrl ?? null,
           cuentaDestinoId,
+          categoria,
           items: items.map((it) => ({
             descripcion: it.descripcion.trim(),
             descripcionCompleta: `${it.descripcion.trim()} — Valor estimado: $${it.valorEstimado}`,
-            categoria: it.categoria,
+            categoria,
             fotosUrls: it.fotos.map((f) => f.dataUrl),
             cuentaDestinoId,
             declaraPropiedad: true,
@@ -287,8 +305,8 @@ export function SolicitarArticuloScreen() {
         { headers: { Authorization: `Bearer ${token}` } }
       );
       Alert.alert(
-        'Subasta enviada',
-        'Tu subasta fue enviada para revisión. Te notificaremos cuando sea procesada.',
+        'Artículos enviados',
+        'Tus artículos fueron enviados a revisión de la empresa. Te avisaremos cuando los inspeccionen y propongan precio.',
         [{ text: 'OK', onPress: () => navigation.goBack() }]
       );
     } catch (err: any) {
@@ -316,7 +334,7 @@ export function SolicitarArticuloScreen() {
         <TouchableOpacity style={styles.backBtn} onPress={() => navigation.goBack()} activeOpacity={0.7}>
           <Ionicons name="chevron-back" size={24} color={W.text} />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>Armar Subasta</Text>
+        <Text style={styles.headerTitle}>Cargar artículos</Text>
         <View style={{ width: 40 }} />
       </View>
 
@@ -326,8 +344,8 @@ export function SolicitarArticuloScreen() {
         keyboardShouldPersistTaps="handled"
       >
         {/* ── Foto de portada ── */}
-        <Text style={styles.sectionTitle}>Foto de portada de la subasta</Text>
-        <Text style={styles.sectionHint}>Opcional — imagen principal de la subasta</Text>
+        <Text style={styles.sectionTitle}>Foto de portada del envío</Text>
+        <Text style={styles.sectionHint}>Opcional — imagen principal de este grupo de artículos</Text>
         <TouchableOpacity style={styles.portadaBtn} onPress={pickPortada} activeOpacity={0.8}>
           {portada ? (
             <Image source={{ uri: portada.uri }} style={styles.portadaImg} resizeMode="cover" />
@@ -349,7 +367,7 @@ export function SolicitarArticuloScreen() {
         </TouchableOpacity>
 
         {/* ── Título ── */}
-        <Text style={styles.label}>Título de la subasta</Text>
+        <Text style={styles.label}>Título del envío (opcional)</Text>
         <View style={[styles.inputWrap, errors.titulo ? styles.inputWrapError : null]}>
           <TextInput
             style={styles.input}
@@ -360,6 +378,36 @@ export function SolicitarArticuloScreen() {
           />
         </View>
         {errors.titulo ? <Text style={styles.errorMsg}>{errors.titulo}</Text> : null}
+
+        {/* ── Categoría de la subasta ── */}
+        <Text style={styles.label}>Categoría de los artículos</Text>
+        {categoriasPermitidas.length === 0 ? (
+          <View style={styles.emptyCard}>
+            <Ionicons name="layers-outline" size={20} color={W.textSub} />
+            <Text style={styles.emptyCardText}>Cargando categorías...</Text>
+          </View>
+        ) : (
+          <View style={styles.categoriasWrap}>
+            {categoriasPermitidas.map((cat) => {
+              const active = categoria === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.categoriaPill, active && styles.categoriaPillActive]}
+                  onPress={() => setCategoria(cat)}
+                  activeOpacity={0.8}
+                >
+                  <Text
+                    style={[styles.categoriaPillText, active && styles.categoriaPillTextActive]}
+                  >
+                    {CATEGORIA_LABELS[cat] ?? cat}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+        )}
+        {errors.categoria ? <Text style={styles.errorMsg}>{errors.categoria}</Text> : null}
 
         {/* ── Cuenta destino ── */}
         <Text style={styles.label}>Cuenta destino</Text>
@@ -381,36 +429,46 @@ export function SolicitarArticuloScreen() {
           </View>
         ) : (
           <View style={styles.pickerContainer}>
-            {mediosDePago.map((m) => (
-              <TouchableOpacity
-                key={m.id}
-                style={[styles.pickerOption, cuentaDestinoId === m.id && styles.pickerOptionActive]}
-                onPress={() => setCuentaDestinoId(m.id)}
-                activeOpacity={0.7}
-              >
-                <Ionicons
-                  name="card-outline"
-                  size={18}
-                  color={cuentaDestinoId === m.id ? W.accent : W.textSub}
-                />
-                <Text
-                  style={[
-                    styles.pickerOptionText,
-                    cuentaDestinoId === m.id && styles.pickerOptionTextActive,
-                  ]}
+            {mediosDePago.map((m) => {
+              const isPending = m.estado === 'PENDIENTE_VERIFICACION';
+              return (
+                <TouchableOpacity
+                  key={m.id}
+                  style={[styles.pickerOption, cuentaDestinoId === m.id && styles.pickerOptionActive]}
+                  onPress={() => setCuentaDestinoId(m.id)}
+                  activeOpacity={0.7}
                 >
-                  {m.alias ?? m.tipo} {m.numero ? `••${m.numero.slice(-4)}` : ''}
-                </Text>
-                {cuentaDestinoId === m.id && (
                   <Ionicons
-                    name="checkmark-circle"
+                    name="card-outline"
                     size={18}
-                    color={W.accent}
-                    style={{ marginLeft: 'auto' }}
+                    color={cuentaDestinoId === m.id ? (isPending ? W.error : W.accent) : W.textSub}
                   />
-                )}
-              </TouchableOpacity>
-            ))}
+                  <View style={{ flex: 1 }}>
+                    <Text
+                      style={[
+                        styles.pickerOptionText,
+                        cuentaDestinoId === m.id && styles.pickerOptionTextActive,
+                      ]}
+                    >
+                      {m.descripcion || (m.alias ?? m.tipo)} {m.numero ? `••${m.numero.slice(-4)}` : ''}
+                    </Text>
+                    {isPending && (
+                      <Text style={styles.pickerPendingBadge}>
+                        Pendiente de verificación
+                      </Text>
+                    )}
+                  </View>
+                  {cuentaDestinoId === m.id && (
+                    <Ionicons
+                      name="checkmark-circle"
+                      size={18}
+                      color={isPending ? W.error : W.accent}
+                      style={{ marginLeft: 'auto' }}
+                    />
+                  )}
+                </TouchableOpacity>
+              );
+            })}
           </View>
         )}
         {errors.cuenta ? <Text style={styles.errorMsg}>{errors.cuenta}</Text> : null}
@@ -437,7 +495,6 @@ export function SolicitarArticuloScreen() {
                   {item.descripcion}
                 </Text>
                 <Text style={styles.itemMeta}>
-                  {CATEGORIA_LABELS[item.categoria ?? ''] ?? item.categoria} •{' '}
                   {item.fotos.length} foto{item.fotos.length !== 1 ? 's' : ''}
                 </Text>
                 <Text style={styles.itemValor}>${item.valorEstimado}</Text>
@@ -481,7 +538,7 @@ export function SolicitarArticuloScreen() {
 
         {/* ── Submit ── */}
         <PrimaryButton
-          title="Publicar subasta"
+          title="Enviar a revisión"
           onPress={handleSubmit}
           loading={submitting}
           style={styles.submitBtn}
@@ -553,37 +610,7 @@ export function SolicitarArticuloScreen() {
                 <Text style={styles.errorMsg}>{draftErrors.valorEstimado}</Text>
               ) : null}
 
-              {/* Categoría */}
-              <Text style={styles.label}>Categoría</Text>
-              {categoriasPermitidas.length === 0 ? (
-                <View style={styles.emptyCard}>
-                  <Ionicons name="layers-outline" size={20} color={W.textSub} />
-                  <Text style={styles.emptyCardText}>Cargando categorías...</Text>
-                </View>
-              ) : (
-                <View style={styles.categoriasWrap}>
-                  {categoriasPermitidas.map((cat) => {
-                    const active = editingDraft.categoria === cat;
-                    return (
-                      <TouchableOpacity
-                        key={cat}
-                        style={[styles.categoriaPill, active && styles.categoriaPillActive]}
-                        onPress={() => setEditingDraft((p) => ({ ...p, categoria: cat }))}
-                        activeOpacity={0.8}
-                      >
-                        <Text
-                          style={[styles.categoriaPillText, active && styles.categoriaPillTextActive]}
-                        >
-                          {CATEGORIA_LABELS[cat] ?? cat}
-                        </Text>
-                      </TouchableOpacity>
-                    );
-                  })}
-                </View>
-              )}
-              {draftErrors.categoria ? (
-                <Text style={styles.errorMsg}>{draftErrors.categoria}</Text>
-              ) : null}
+              {/* Categoría is now defined at the lot level */}
 
               {/* Fotos del ítem */}
               <View style={styles.fotosHeader}>
@@ -826,6 +853,12 @@ const styles = StyleSheet.create({
   },
   pickerOptionTextActive: {
     color: W.text,
+    fontWeight: '600',
+  },
+  pickerPendingBadge: {
+    fontSize: 11,
+    color: '#FF6B6B',
+    marginTop: 2,
     fontWeight: '600',
   },
 

@@ -58,6 +58,12 @@ class AdminServiceTest {
     @Mock
     private SeguroRepository seguroRepository;
 
+    @Mock
+    private com.subastas.repository.LoteRepository loteRepository;
+
+    @Mock
+    private com.subastas.repository.CatalogoRepository catalogoRepository;
+
     @InjectMocks
     private AdminService adminService;
 
@@ -126,6 +132,45 @@ class AdminServiceTest {
 
         verify(seguroRepository, never()).save(any());
         verify(productoRepository, never()).save(any());
+    }
+
+    // -----------------------------------------------------------------------
+    // armarSubasta
+    // -----------------------------------------------------------------------
+
+    @Test
+    void armarSubasta_sinItemsListos_lanzaBusinessException() {
+        Producto sinSeguro = new Producto();
+        sinSeguro.setDisponible("aceptado_por_usuario"); // aceptado pero sin seguro → no listo
+        com.subastas.dto.request.ArmarSubastaRequest req =
+                new com.subastas.dto.request.ArmarSubastaRequest("Mi subasta", "joyas", 3, null, List.of(5L));
+        when(productoRepository.findAllById(List.of(5L))).thenReturn(List.of(sinSeguro));
+
+        assertThrows(com.subastas.exception.BusinessException.class,
+                () -> adminService.armarSubasta(req));
+
+        verify(subastaRepository, never()).save(any());
+    }
+
+    @Test
+    void armarSubasta_conItemListo_creaSubastaYMarcaIncluido() {
+        Producto listo = new Producto();
+        listo.setDisponible("aceptado_por_usuario");
+        listo.setSeguro(new Seguro());
+        com.subastas.dto.request.ArmarSubastaRequest req =
+                new com.subastas.dto.request.ArmarSubastaRequest("Colección Uri", "joyas", 3, null, List.of(5L));
+
+        when(productoRepository.findAllById(List.of(5L))).thenReturn(List.of(listo));
+        when(subastaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(catalogoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(itemCatalogoRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));
+        when(productoRepository.save(any(Producto.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        adminService.armarSubasta(req);
+
+        verify(subastaRepository, times(1)).save(any());
+        verify(itemCatalogoRepository, times(1)).save(any());
+        assertEquals("incluido_en_subasta", listo.getDisponible());
     }
 
     // -----------------------------------------------------------------------

@@ -2,6 +2,7 @@ package com.subastas.controller;
 
 import com.subastas.dto.request.GenerarMultaRequest;
 import com.subastas.dto.response.ArticuloUsuarioResponse;
+import com.subastas.dto.response.LoteResponse;
 import com.subastas.dto.response.MedioPagoResponse;
 import com.subastas.dto.response.MultaResponse;
 import com.subastas.dto.response.VendedorPendienteResponse;
@@ -120,6 +121,20 @@ public class AdminController {
         return ResponseEntity.ok(adminService.listarArticulosPendientes());
     }
 
+    /** Lista las subastas (lotes) con ítems pendientes de inspección/propuesta. */
+    @GetMapping("/lotes/pendientes")
+    public ResponseEntity<List<LoteResponse>> lotesPendientes() {
+        log.info("GET /admin/lotes/pendientes");
+        return ResponseEntity.ok(adminService.listarLotesPendientes());
+    }
+
+    /** Detalle de una subasta con todos sus ítems (para operar ítem por ítem). */
+    @GetMapping("/lotes/{loteId}")
+    public ResponseEntity<LoteResponse> obtenerLote(@PathVariable Long loteId) {
+        log.info("GET /admin/lotes/{}", loteId);
+        return ResponseEntity.ok(adminService.obtenerLote(loteId));
+    }
+
     /** Admin acepta la inspección física → artículo pasa a 'inspeccion_aprobada'. */
     @PostMapping("/articulos/{id}/aceptar")
     public ResponseEntity<Map<String, String>> aceptarArticulo(@PathVariable Long id) {
@@ -166,6 +181,22 @@ public class AdminController {
         log.info("POST /admin/articulos/{}/seguro", id);
         adminService.contratarSeguro(id);
         return ResponseEntity.ok(Map.of("mensaje", "Seguro contratado"));
+    }
+
+    /** Ítems aceptados por el vendedor y asegurados, listos para que la empresa los arme en una subasta. */
+    @GetMapping("/articulos/listos")
+    public ResponseEntity<List<com.subastas.dto.response.ItemListoResponse>> itemsListos() {
+        log.info("GET /admin/articulos/listos");
+        return ResponseEntity.ok(adminService.listarItemsListos());
+    }
+
+    /** La empresa arma una subasta seleccionando ítems listos (de uno o varios dueños) y su duración. */
+    @PostMapping("/subastas/armar")
+    public ResponseEntity<Map<String, String>> armarSubasta(
+            @jakarta.validation.Valid @RequestBody com.subastas.dto.request.ArmarSubastaRequest request) {
+        log.info("POST /admin/subastas/armar — items={}, categoria={}", request.itemIds(), request.categoria());
+        adminService.armarSubasta(request);
+        return ResponseEntity.ok(Map.of("mensaje", "Subasta armada"));
     }
 
     // =====================================================================

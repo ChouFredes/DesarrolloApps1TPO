@@ -6,6 +6,7 @@ import { SplashScreen } from '../screens/SplashScreen';
 import { AuthNavigator } from './AuthNavigator';
 import { MainNavigator } from './MainNavigator';
 import { VendedorNavigator } from './VendedorNavigator';
+import { AdminNavigator } from './AdminNavigator';
 
 const Stack = createStackNavigator();
 
@@ -37,6 +38,8 @@ export function RootNavigator() {
         ) : isAuthenticated ? (
           user?.categoria === 'vendedor' ? (
             <Stack.Screen name="Vendedor" component={VendedorNavigator} />
+          ) : user?.categoria === 'admin' ? (
+            <Stack.Screen name="Admin" component={AdminNavigator} />
           ) : (
             <Stack.Screen name="Main" component={MainNavigator} />
           )

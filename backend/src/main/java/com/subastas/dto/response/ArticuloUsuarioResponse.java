@@ -16,5 +16,7 @@ public record ArticuloUsuarioResponse(
         String imagenUrl,
         String categoria,
         String descripcionCompleta,
-        List<String> fotosUrls
+        List<String> fotosUrls,
+        /** Mayor oferta actual si el artículo está en subasta; null si todavía no recibió pujas. */
+        BigDecimal ofertaActual
 ) {}

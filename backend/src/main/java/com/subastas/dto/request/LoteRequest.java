@@ -11,5 +11,6 @@ public record LoteRequest(
         /** Foto de portada general del lote como data URI base64; puede ser null. */
         String fotoPortadaUrl,
         Long cuentaDestinoId,
+        String categoria,
         @NotNull @Size(min = 1, max = 10) List<@Valid SolicitudArticuloRequest> items
 ) {}

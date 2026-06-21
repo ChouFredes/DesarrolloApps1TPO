@@ -13,9 +13,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation, useFocusEffect } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
+
 type Nav = StackNavigationProp<any, any>;
 
 type MedioTipo = 'CUENTA_BANCARIA' | 'TARJETA_CREDITO' | 'CHEQUE_CERTIFICADO';
@@ -206,7 +214,7 @@ export function MetodosDePagoScreen() {
           {/* Aviso si hay medios pendientes */}
           {medios.some((m) => m.estado === 'PENDIENTE_VERIFICACION') && (
             <View style={styles.pendienteInfo}>
-              <Ionicons name="information-circle-outline" size={18} color="#D97706" />
+              <Ionicons name="information-circle-outline" size={18} color="#F5C542" />
               <Text style={styles.pendienteInfoText}>
                 Uno o más métodos de pago están pendientes de verificación por el administrador. Mientras no estén aprobados, no podrás pujar en subastas.
               </Text>
@@ -357,7 +365,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'flex-start',
     gap: 8,
-    backgroundColor: '#FEF3C7',
+    backgroundColor: '#0D1E33',
+    borderLeftWidth: 3,
+    borderLeftColor: '#F5C542',
     borderRadius: 10,
     padding: 12,
     marginHorizontal: 16,
@@ -366,7 +376,7 @@ const styles = StyleSheet.create({
   pendienteInfoText: {
     flex: 1,
     fontSize: 12,
-    color: '#92400E',
+    color: '#F5C542',
     lineHeight: 18,
   },
   emptySlot: {

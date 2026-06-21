@@ -2,12 +2,12 @@ import React from 'react';
 import { createBottomTabNavigator } from '@react-navigation/bottom-tabs';
 import { createStackNavigator } from '@react-navigation/stack';
 import { Ionicons } from '@expo/vector-icons';
-import { StackActions } from '@react-navigation/native';
 import { useAuthStore } from '../stores/authStore';
 import { VendedorEsperaScreen } from '../screens/VendedorEsperaScreen';
 import { VendedorHomeScreen } from '../screens/VendedorHomeScreen';
 import { VendedorPerfilScreen } from '../screens/VendedorPerfilScreen';
-import { MisArticulosScreen } from '../screens/MisArticulosScreen';
+import { MisSubastasScreen } from '../screens/MisSubastasScreen';
+import { SubastaDetalleVendedorScreen } from '../screens/SubastaDetalleVendedorScreen';
 import { ArticuloDetailScreen } from '../screens/ArticuloDetailScreen';
 import { EstadoArticuloScreen } from '../screens/EstadoArticuloScreen';
 import { SolicitarArticuloScreen } from '../screens/SolicitarArticuloScreen';
@@ -16,7 +16,8 @@ import { MetodosDePagoScreen } from '../screens/MetodosDePagoScreen';
 import { AgregarMedioPagoScreen } from '../screens/AgregarMedioPagoScreen';
 
 export type VendedorItemsStackParamList = {
-  MisArticulos: undefined;
+  MisSubastas: undefined;
+  SubastaDetalleVendedor: { loteId: number };
   ArticuloDetalle: { articuloId: number };
   EstadoArticulo: { articuloId: number };
   SolicitarArticulo: undefined;
@@ -37,7 +38,8 @@ function VendedorItemsStackNavigator() {
         cardStyleInterpolator: customInterpolator,
       }}
     >
-      <ItemsStack.Screen name="MisArticulos" component={MisArticulosScreen} />
+      <ItemsStack.Screen name="MisSubastas" component={MisSubastasScreen} />
+      <ItemsStack.Screen name="SubastaDetalleVendedor" component={SubastaDetalleVendedorScreen} />
       <ItemsStack.Screen name="ArticuloDetalle" component={ArticuloDetailScreen} />
       <ItemsStack.Screen name="EstadoArticulo" component={EstadoArticuloScreen} />
       <ItemsStack.Screen name="SolicitarArticulo" component={SolicitarArticuloScreen} />
@@ -124,36 +126,23 @@ export function VendedorNavigator() {
       <Tab.Screen 
         name="ItemsTab" 
         component={VendedorItemsStackNavigator} 
-        options={{ title: 'Mis Ítems' }} 
+        options={{ title: 'Mis Artículos' }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            const state = navigation.getState();
-            const route = state?.routes?.find((r: any) => r.name === 'ItemsTab');
-            const stackIndex = route?.state?.index;
-
-            navigation.navigate('ItemsTab', { screen: 'MisArticulos' });
-            if (stackIndex !== undefined && stackIndex > 0) {
-              navigation.dispatch(StackActions.popToTop());
-            }
+            // navigate al screen raíz ya popea el stack anidado hasta su base
+            navigation.navigate('ItemsTab', { screen: 'MisSubastas' });
           },
         })}
       />
       <Tab.Screen 
         name="PerfilTab" 
         component={VendedorPerfilStackNavigator} 
-        options={{ title: 'Perfil' }} 
+        options={{ title: 'Perfil' }}
         listeners={({ navigation }) => ({
           tabPress: (e) => {
             e.preventDefault();
-            const state = navigation.getState();
-            const route = state?.routes?.find((r: any) => r.name === 'PerfilTab');
-            const stackIndex = route?.state?.index;
-
             navigation.navigate('PerfilTab', { screen: 'VendedorPerfil' });
-            if (stackIndex !== undefined && stackIndex > 0) {
-              navigation.dispatch(StackActions.popToTop());
-            }
           },
         })}
       />

@@ -45,6 +45,23 @@ public class ArticuloController {
         return ResponseEntity.status(HttpStatus.CREATED).body(articuloService.solicitarLote(clienteId, request));
     }
 
+    @GetMapping("/articulos/lotes")
+    public ResponseEntity<List<LoteResponse>> listarLotes(
+            @RequestHeader("Authorization") String bearerToken) {
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("GET /articulos/lotes — clienteId={}", clienteId);
+        return ResponseEntity.ok(articuloService.listarLotes(clienteId));
+    }
+
+    @GetMapping("/articulos/lotes/{loteId}")
+    public ResponseEntity<LoteResponse> obtenerLote(
+            @PathVariable Long loteId,
+            @RequestHeader("Authorization") String bearerToken) {
+        Long clienteId = jwtUtil.extractUserId(bearerToken.replace("Bearer ", ""));
+        log.info("GET /articulos/lotes/{} — clienteId={}", loteId, clienteId);
+        return ResponseEntity.ok(articuloService.obtenerLote(clienteId, loteId));
+    }
+
     @GetMapping("/articulos/mis-articulos")
     public ResponseEntity<List<ArticuloUsuarioResponse>> listarArticulos(
             @RequestHeader("Authorization") String bearerToken) {

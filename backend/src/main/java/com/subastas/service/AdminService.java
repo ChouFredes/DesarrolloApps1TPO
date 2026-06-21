@@ -1,8 +1,13 @@
 package com.subastas.service;
 
+import com.subastas.dto.request.ArmarSubastaRequest;
 import com.subastas.dto.response.ArticuloUsuarioResponse;
+import com.subastas.dto.response.ItemListoResponse;
+import com.subastas.dto.response.LoteResponse;
 import com.subastas.dto.response.MedioPagoResponse;
 import com.subastas.dto.response.VendedorPendienteResponse;
+import com.subastas.entity.Catalogo;
+import com.subastas.entity.Lote;
 import com.subastas.entity.Duenio;
 import com.subastas.entity.Foto;
 import com.subastas.entity.ItemCatalogo;
@@ -10,6 +15,7 @@ import com.subastas.entity.MedioPago;
 import com.subastas.entity.Producto;
 import com.subastas.entity.Subasta;
 import com.subastas.entity.enums.CategoriaCliente;
+import com.subastas.entity.enums.CategoriaSubasta;
 import com.subastas.entity.enums.EstadoMedioPago;
 import com.subastas.entity.enums.EstadoPersona;
 import com.subastas.entity.enums.EstadoSubasta;
@@ -18,11 +24,14 @@ import com.subastas.entity.Seguro;
 import com.subastas.repository.ClienteRepository;
 import com.subastas.repository.DuenioRepository;
 import com.subastas.repository.FotoRepository;
+import com.subastas.repository.CatalogoRepository;
 import com.subastas.repository.ItemCatalogoRepository;
+import com.subastas.repository.LoteRepository;
 import com.subastas.repository.MedioPagoRepository;
 import com.subastas.repository.ProductoRepository;
 import com.subastas.repository.SeguroRepository;
 import com.subastas.repository.SubastaRepository;
+import com.subastas.util.LoteEstadoUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -45,6 +54,8 @@ public class AdminService {
     private final FotoRepository fotoRepository;
     private final ExpoNotificationService expoNotificationService;
     private final SeguroRepository seguroRepository;
+    private final LoteRepository loteRepository;
+    private final CatalogoRepository catalogoRepository;
 
     // =====================================================================
     // Usuarios (postores)
@@ -201,6 +212,58 @@ public class AdminService {
     }
 
     /**
+     * Lista las subastas (lotes) que tienen al menos un ítem por inspeccionar o a la espera
+     * de propuesta de precio. La empresa entra a la subasta y opera ítem por ítem.
+     */
+    @Transactional(readOnly = true)
+    public List<LoteResponse> listarLotesPendientes() {
+        return loteRepository.findAllByOrderByFechaCreacionDesc().stream()
+                .map(this::toLoteResponseConItems)
+                .filter(par -> LoteEstadoUtil.tienePendientesParaEmpresa(par.items()))
+                .map(LoteConProductos::response)
+                .toList();
+    }
+
+    /**
+     * Detalle de una subasta para la empresa (ve todos los ítems, sin filtrar por estado).
+     */
+    @Transactional(readOnly = true)
+    public LoteResponse obtenerLote(Long loteId) {
+        Lote lote = loteRepository.findById(loteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subasta", "id", loteId));
+        return toLoteResponseConItems(lote).response();
+    }
+
+    /** Tupla interna: el LoteResponse ya armado junto con los Productos crudos para filtrar. */
+    private record LoteConProductos(LoteResponse response, List<Producto> items) {}
+
+    private LoteConProductos toLoteResponseConItems(Lote lote) {
+        List<Producto> productos = productoRepository.findByLoteId(lote.getId());
+        List<ArticuloUsuarioResponse> items = productos.stream()
+                .map(this::toArticuloResponse)
+                .toList();
+
+        String fotoPortadaUrl = lote.getFotoPortada() != null
+                ? "/v1/fotos/" + lote.getFotoPortada().getId()
+                : null;
+        String duenioNombre = lote.getDuenio() != null
+                ? lote.getDuenio().getNombre() + " " + lote.getDuenio().getApellido()
+                : null;
+
+        LoteResponse response = new LoteResponse(
+                lote.getId(),
+                lote.getTitulo(),
+                fotoPortadaUrl,
+                lote.getFechaCreacion(),
+                LoteEstadoUtil.derivar(productos),
+                items,
+                lote.getCategoria() != null ? lote.getCategoria().name() : null,
+                duenioNombre
+        );
+        return new LoteConProductos(response, productos);
+    }
+
+    /**
      * Admin acepta la inspección → pasa a 'inspeccion_aprobada' (ahora debe proponer precio).
      */
     @Transactional
@@ -250,6 +313,78 @@ public class AdminService {
         log.info("Depósito asignado para articuloId={}: {}", articuloId, deposito);
     }
 
+    /** Lista los ítems aceptados por el vendedor y asegurados, listos para armar una subasta. */
+    @Transactional(readOnly = true)
+    public List<ItemListoResponse> listarItemsListos() {
+        return productoRepository.findByDisponible("aceptado_por_usuario").stream()
+                .filter(p -> p.getSeguro() != null)
+                .map(p -> {
+                    List<Foto> fotos = fotoRepository.findByProductoId(p.getId());
+                    String imagenUrl = fotos.isEmpty() ? null : "/v1/fotos/" + fotos.get(0).getId();
+                    return new ItemListoResponse(
+                            p.getId(),
+                            p.getDescripcionCatalogo(),
+                            p.getCategoria() != null ? p.getCategoria().name() : null,
+                            p.getPrecioBasePropuesto(),
+                            p.getDuenio() != null ? p.getDuenio().getId() : null,
+                            p.getDuenio() != null ? p.getDuenio().getNombre() + " " + p.getDuenio().getApellido() : null,
+                            imagenUrl
+                    );
+                })
+                .toList();
+    }
+
+    /**
+     * La empresa arma la subasta seleccionando ítems listos (de uno o varios dueños) y le pone duración.
+     * Crea la Subasta + Catalogo + ItemCatalogo; los compradores de esa categoría o superior la ven en /subastas/abiertas.
+     */
+    @Transactional
+    public void armarSubasta(ArmarSubastaRequest req) {
+        CategoriaSubasta categoria;
+        try {
+            categoria = CategoriaSubasta.valueOf(req.categoria().toLowerCase().trim());
+        } catch (IllegalArgumentException e) {
+            throw new com.subastas.exception.BusinessException("Categoría inválida: " + req.categoria());
+        }
+
+        List<Producto> listos = productoRepository.findAllById(req.itemIds()).stream()
+                .filter(p -> "aceptado_por_usuario".equals(p.getDisponible()) && p.getSeguro() != null)
+                .toList();
+        if (listos.isEmpty()) {
+            throw new com.subastas.exception.BusinessException(
+                    "Ninguno de los ítems seleccionados está listo (deben estar aceptados por el vendedor y asegurados)");
+        }
+
+        Subasta subasta = new Subasta();
+        subasta.setTitulo(req.titulo() != null && !req.titulo().isBlank() ? req.titulo() : "Subasta " + categoria.name());
+        subasta.setCategoria(categoria);
+        subasta.setEstado(EstadoSubasta.abierta);
+        subasta.setFecha(java.time.LocalDate.now().plusDays(Math.max(1, req.dias())));
+        subasta.setHora(java.time.LocalTime.now());
+        if (req.fotoPortadaUrl() != null && !req.fotoPortadaUrl().isBlank()) {
+            subasta.setFotoPortada(com.subastas.util.ImagenUtil.decodeFoto(req.fotoPortadaUrl()));
+        }
+        Subasta savedSubasta = subastaRepository.save(subasta);
+
+        Catalogo catalogo = new Catalogo();
+        catalogo.setSubasta(savedSubasta);
+        Catalogo savedCatalogo = catalogoRepository.save(catalogo);
+
+        for (Producto p : listos) {
+            ItemCatalogo ic = new ItemCatalogo();
+            ic.setCatalogo(savedCatalogo);
+            ic.setProducto(p);
+            ic.setPrecioBase(p.getPrecioBasePropuesto());
+            ic.setComision(p.getComisionPropuesta());
+            ic.setSubastado("no");
+            itemCatalogoRepository.save(ic);
+
+            p.setDisponible("incluido_en_subasta");
+            productoRepository.save(p);
+        }
+        log.info("Subasta {} armada con {} ítems, dura {} días", savedSubasta.getId(), listos.size(), req.dias());
+    }
+
     @Transactional
     public void contratarSeguro(Long articuloId) {
         Producto producto = productoRepository.findById(articuloId)
@@ -259,8 +394,10 @@ public class AdminService {
         seguro.setCompania("Aseguradora VIVO");
         seguro.setImporte(producto.getPrecioBasePropuesto() != null ? producto.getPrecioBasePropuesto() : BigDecimal.ZERO);
         seguro.setPolizaCombinada("no");
-        seguroRepository.save(seguro);
-        producto.setSeguro(seguro);
+        // Usar la instancia gestionada que devuelve save(): con @Id String asignado, Spring Data
+        // hace merge y la instancia original queda transitoria (referencia a unsaved transient instance).
+        Seguro guardado = seguroRepository.save(seguro);
+        producto.setSeguro(guardado);
         productoRepository.save(producto);
         log.info("Seguro contratado para articuloId={}", articuloId);
     }
@@ -320,7 +457,8 @@ public class AdminService {
                 imagenUrl,
                 producto.getCategoria() != null ? producto.getCategoria().name() : null,
                 producto.getDescripcionCompleta(),
-                fotosUrls
+                fotosUrls,
+                null // vista de empresa: la oferta actual no aplica acá
         );
     }
 }

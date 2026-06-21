@@ -17,4 +17,6 @@ public interface ProductoRepository extends JpaRepository<Producto, Long> {
     List<Producto> findByDisponible(String disponible);
 
     List<Producto> findByDisponibleIn(List<String> disponibles);
+
+    List<Producto> findByLoteId(Long loteId);
 }

@@ -12,10 +12,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 type Nav = StackNavigationProp<ProfileStackParamList, 'ProfileMain'>;
 
@@ -170,34 +177,6 @@ export function ProfileScreen() {
               label="Mis Compras"
               onPress={() => navigation.navigate('Compras')}
             />
-            {user?.categoria === 'admin' && (
-              <MenuRow
-                icon={<Ionicons name="shield-checkmark-outline" size={22} color={colors.accent} />}
-                label="Verificación de Usuarios"
-                onPress={() => navigation.navigate('AdminUsuarios' as any)}
-              />
-            )}
-            {user?.categoria === 'admin' && (
-              <MenuRow
-                icon={<Ionicons name="briefcase-outline" size={22} color={colors.accent} />}
-                label="Verificación de Vendedores"
-                onPress={() => navigation.navigate('AdminVendedores' as any)}
-              />
-            )}
-            {user?.categoria === 'admin' && (
-              <MenuRow
-                icon={<Ionicons name="cube-outline" size={22} color={colors.accent} />}
-                label="Artículos Pendientes"
-                onPress={() => navigation.navigate('AdminArticulos' as any)}
-              />
-            )}
-            {user?.categoria === 'admin' && (
-              <MenuRow
-                icon={<Ionicons name="card-outline" size={22} color={colors.accent} />}
-                label="Medios de Pago Pendientes"
-                onPress={() => navigation.navigate('AdminMediosPago' as any)}
-              />
-            )}
             <MenuRow
               icon={<Ionicons name="settings-outline" size={22} color={colors.accent} />}
               label="Configuración"
@@ -224,7 +203,7 @@ export default ProfileScreen;
 const styles = StyleSheet.create({
   safe: {
     flex: 1,
-    backgroundColor: colors.surface,
+    backgroundColor: colors.background,
   },
   scrollContent: {
     flexGrow: 1,

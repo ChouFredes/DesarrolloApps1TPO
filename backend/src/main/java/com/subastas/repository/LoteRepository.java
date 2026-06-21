@@ -10,4 +10,6 @@ import java.util.List;
 public interface LoteRepository extends JpaRepository<Lote, Long> {
 
     List<Lote> findByDuenioId(Long duenioId);
+
+    List<Lote> findAllByOrderByFechaCreacionDesc();
 }

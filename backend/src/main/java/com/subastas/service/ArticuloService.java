@@ -25,6 +25,7 @@ import com.subastas.repository.LoteRepository;
 import com.subastas.repository.ProductoRepository;
 import com.subastas.util.CategoriaUtil;
 import com.subastas.util.ImagenUtil;
+import com.subastas.util.LoteEstadoUtil;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -46,6 +47,7 @@ public class ArticuloService {
     private final ItemCatalogoRepository itemCatalogoRepository;
     private final DuenioRepository duenioRepository;
     private final LoteRepository loteRepository;
+    private final com.subastas.repository.PujoRepository pujoRepository;
 
     @Transactional
     public SolicitudArticuloResponse solicitarArticulo(Long clienteId, SolicitudArticuloRequest request) {
@@ -84,6 +86,19 @@ public class ArticuloService {
             throw new BusinessException("Tu cuenta de vendedor todavía no fue verificada por el administrador");
         }
 
+        CategoriaSubasta categoriaLote;
+        try {
+            categoriaLote = CategoriaSubasta.valueOf(request.categoria().toLowerCase().trim());
+        } catch (IllegalArgumentException e) {
+            throw new BusinessException("Categoría inválida: " + request.categoria());
+        }
+
+        if (!CategoriaUtil.puedeAcceder(duenio.getCategoria(), categoriaLote)) {
+            throw new BusinessException(
+                    "Tu nivel de vendedor (" + (duenio.getCategoria() != null ? duenio.getCategoria().name() : "sin asignar")
+                            + ") no te permite publicar en la categoría " + categoriaLote.name());
+        }
+
         Foto fotoPortada = null;
         if (request.fotoPortadaUrl() != null && !request.fotoPortadaUrl().isBlank()) {
             fotoPortada = new Foto();
@@ -97,24 +112,76 @@ public class ArticuloService {
         lote.setFotoPortada(fotoPortada);
         lote.setFechaCreacion(LocalDateTime.now());
         lote.setEstado("pendiente_inspeccion");
+        lote.setCategoria(categoriaLote);
         Lote savedLote = loteRepository.save(lote);
         log.info("Lote creado con id={}", savedLote.getId());
 
-        List<ArticuloUsuarioResponse> items = new ArrayList<>();
+        List<Producto> creados = new ArrayList<>();
         for (SolicitudArticuloRequest item : request.items()) {
-            Producto savedProducto = crearProductoDesdeItem(item, duenio, savedLote);
-            items.add(toItemResponse(savedProducto));
+            creados.add(crearProductoDesdeItem(item, duenio, savedLote));
         }
 
-        String fotoPortadaUrl = fotoPortada != null ? "/v1/fotos/" + fotoPortada.getId() : null;
+        return buildLoteResponse(savedLote, creados);
+    }
+
+    /**
+     * Lista las subastas (lotes) del vendedor autenticado, con sus ítems.
+     */
+    @Transactional(readOnly = true)
+    public List<LoteResponse> listarLotes(Long clienteId) {
+        log.info("Listando lotes para clienteId={}", clienteId);
+        return loteRepository.findByDuenioId(clienteId).stream()
+                .sorted((a, b) -> {
+                    if (a.getFechaCreacion() == null) return 1;
+                    if (b.getFechaCreacion() == null) return -1;
+                    return b.getFechaCreacion().compareTo(a.getFechaCreacion());
+                })
+                .map(this::toLoteResponse)
+                .toList();
+    }
+
+    /**
+     * Detalle de una subasta del vendedor (valida pertenencia).
+     */
+    @Transactional(readOnly = true)
+    public LoteResponse obtenerLote(Long clienteId, Long loteId) {
+        log.info("Obteniendo lote id={} para clienteId={}", loteId, clienteId);
+        Lote lote = loteRepository.findById(loteId)
+                .orElseThrow(() -> new ResourceNotFoundException("Subasta", "id", loteId));
+        if (lote.getDuenio() == null || !lote.getDuenio().getId().equals(clienteId)) {
+            throw new ResourceNotFoundException("Subasta", "id", loteId);
+        }
+        return toLoteResponse(lote);
+    }
+
+    /**
+     * Arma el LoteResponse de un lote, cargando sus ítems y derivando el estado resumen.
+     */
+    private LoteResponse toLoteResponse(Lote lote) {
+        return buildLoteResponse(lote, productoRepository.findByLoteId(lote.getId()));
+    }
+
+    private LoteResponse buildLoteResponse(Lote lote, List<Producto> productos) {
+        List<ArticuloUsuarioResponse> items = productos.stream()
+                .map(this::toItemResponse)
+                .toList();
+
+        String fotoPortadaUrl = lote.getFotoPortada() != null
+                ? "/v1/fotos/" + lote.getFotoPortada().getId()
+                : null;
+        String duenioNombre = lote.getDuenio() != null
+                ? lote.getDuenio().getNombre() + " " + lote.getDuenio().getApellido()
+                : null;
 
         return new LoteResponse(
-                savedLote.getId(),
-                savedLote.getTitulo(),
+                lote.getId(),
+                lote.getTitulo(),
                 fotoPortadaUrl,
-                savedLote.getFechaCreacion(),
-                savedLote.getEstado(),
-                items
+                lote.getFechaCreacion(),
+                LoteEstadoUtil.derivar(productos),
+                items,
+                lote.getCategoria() != null ? lote.getCategoria().name() : null,
+                duenioNombre
         );
     }
 
@@ -132,16 +199,20 @@ public class ArticuloService {
         }
 
         CategoriaSubasta categoria;
-        try {
-            categoria = CategoriaSubasta.valueOf(request.categoria().toLowerCase().trim());
-        } catch (IllegalArgumentException e) {
-            throw new BusinessException("Categoría inválida: " + request.categoria());
-        }
+        if (lote != null) {
+            categoria = lote.getCategoria();
+        } else {
+            try {
+                categoria = CategoriaSubasta.valueOf(request.categoria().toLowerCase().trim());
+            } catch (IllegalArgumentException e) {
+                throw new BusinessException("Categoría inválida: " + request.categoria());
+            }
 
-        if (!CategoriaUtil.puedeAcceder(duenio.getCategoria(), categoria)) {
-            throw new BusinessException(
-                    "Tu nivel de vendedor (" + (duenio.getCategoria() != null ? duenio.getCategoria().name() : "sin asignar")
-                            + ") no te permite publicar en la categoría " + categoria.name());
+            if (!CategoriaUtil.puedeAcceder(duenio.getCategoria(), categoria)) {
+                throw new BusinessException(
+                        "Tu nivel de vendedor (" + (duenio.getCategoria() != null ? duenio.getCategoria().name() : "sin asignar")
+                                + ") no te permite publicar en la categoría " + categoria.name());
+            }
         }
 
         Producto producto = new Producto();
@@ -188,7 +259,8 @@ public class ArticuloService {
                 imagenUrl,
                 producto.getCategoria() != null ? producto.getCategoria().name() : null,
                 producto.getDescripcionCompleta(),
-                fotosUrls
+                fotosUrls,
+                null // recién creado: aún sin ItemCatalogo ni pujas
         );
     }
 
@@ -294,12 +366,14 @@ public class ArticuloService {
         Long subastaId = null;
         BigDecimal precioBase = null;
         BigDecimal comision = null;
+        BigDecimal ofertaActual = null;
 
         // El precio base y comisión pueden venir de la propuesta del Producto o del ItemCatalogo (si ya fue incluido)
         if (itemOpt.isPresent()) {
             ItemCatalogo item = itemOpt.get();
             precioBase = item.getPrecioBase();
             comision = item.getComision();
+            ofertaActual = pujoRepository.findMayorImporteByItemId(item.getId()).orElse(null);
             if (item.getCatalogo() != null && item.getCatalogo().getSubasta() != null) {
                 subastaId = item.getCatalogo().getSubasta().getId();
             }
@@ -333,7 +407,8 @@ public class ArticuloService {
                 imagenUrl,
                 producto.getCategoria() != null ? producto.getCategoria().name() : null,
                 producto.getDescripcionCompleta(),
-                fotosUrls
+                fotosUrls,
+                ofertaActual
         );
     }
 
@@ -342,15 +417,18 @@ public class ArticuloService {
         Producto producto = productoRepository.findByIdAndDuenioId(articuloId, clienteId)
                 .orElseThrow(() -> new ResourceNotFoundException("Artículo", "id", articuloId));
 
-        // Solo se puede editar si está rechazado por el admin o por el usuario
-        if (!"rechazado".equals(producto.getDisponible()) && !"rechazado_por_usuario".equals(producto.getDisponible())) {
-            throw new BusinessException("Solo se pueden modificar artículos rechazados");
+        // Se puede editar mientras esté pendiente de inspección o haya sido rechazado.
+        // Una vez que la empresa propuso precio (o el ítem avanzó), ya no se edita.
+        if (!"pendiente_inspeccion".equals(producto.getDisponible())
+                && !"rechazado".equals(producto.getDisponible())
+                && !"rechazado_por_usuario".equals(producto.getDisponible())) {
+            throw new BusinessException("Solo se pueden modificar ítems pendientes de inspección o rechazados");
         }
 
         producto.setDescripcionCatalogo(request.descripcionCatalogo());
         producto.setDescripcionCompleta(request.descripcionCompleta());
         producto.setCategoria(com.subastas.entity.enums.CategoriaSubasta.valueOf(request.categoria()));
-        
+
         // Al modificar, vuelve a estar en pendiente de inspección
         producto.setDisponible("pendiente_inspeccion");
         producto.setMotivoRechazo(null);
@@ -358,6 +436,22 @@ public class ArticuloService {
         producto.setComisionPropuesta(null);
 
         Producto saved = productoRepository.save(producto);
+
+        // Si el vendedor mandó fotos nuevas, se reemplazan las anteriores.
+        if (request.fotosUrls() != null && !request.fotosUrls().isEmpty()) {
+            List<Foto> fotosPrevias = fotoRepository.findByProductoId(saved.getId());
+            if (!fotosPrevias.isEmpty()) {
+                fotoRepository.deleteAll(fotosPrevias);
+            }
+            for (String url : request.fotosUrls()) {
+                Foto foto = new Foto();
+                foto.setProducto(saved);
+                foto.setFoto(ImagenUtil.decodeFoto(url));
+                fotoRepository.save(foto);
+            }
+            log.info("Fotos reemplazadas para articuloId={} ({} nuevas)", articuloId, request.fotosUrls().size());
+        }
+
         log.info("Artículo actualizado y devuelto a pendiente_inspeccion: articuloId={}", articuloId);
         return toResponse(saved, false);
     }

@@ -1,5 +1,6 @@
 package com.subastas.entity;
 
+import com.subastas.entity.enums.CategoriaSubasta;
 import jakarta.persistence.*;
 import lombok.Getter;
 import lombok.Setter;
@@ -35,4 +36,8 @@ public class Lote {
     /** Estado del lote. Valor inicial: "pendiente_inspeccion". */
     @Column(name = "estado")
     private String estado;
+
+    @Column(name = "categoria")
+    @Enumerated(EnumType.STRING)
+    private CategoriaSubasta categoria;
 }

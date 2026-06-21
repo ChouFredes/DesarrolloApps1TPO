@@ -12,8 +12,15 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons, MaterialCommunityIcons } from '@expo/vector-icons';
 import { useNavigation } from '@react-navigation/native';
 import { StackNavigationProp } from '@react-navigation/stack';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 type Nav = StackNavigationProp<ProfileStackParamList, 'Configuracion'>;
 
@@ -35,9 +42,9 @@ function ToggleRow({ icon, label, value, onToggle, isLast }: ToggleRowProps) {
       <Switch
         value={value}
         onValueChange={onToggle}
-        trackColor={{ false: colors.border, true: colors.accent }}
-        thumbColor={colors.surface}
-        ios_backgroundColor={colors.border}
+        trackColor={{ false: 'rgba(225,225,225,0.2)', true: '#00EADF' }}
+        thumbColor={'#E1E1E1'}
+        ios_backgroundColor={'rgba(225,225,225,0.2)'}
       />
     </View>
   );

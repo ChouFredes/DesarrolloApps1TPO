@@ -12,10 +12,17 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { useNavigation, useRoute, RouteProp } from '@react-navigation/native';
 import axios from 'axios';
-import { colors, spacing, borderRadius, shadows } from '../theme';
+import { spacing, borderRadius, shadows } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
 import { ProfileStackParamList } from '../navigation/ProfileStackNavigator';
+
+// ponytail: paleta navy local (igual a la home) sobreescribe el theme cálido, sin tocar styles
+const colors = {
+  primary: '#00EADF', accent: '#00EADF', background: '#0F1F35', surface: '#0D1E33',
+  text: '#E1E1E1', textSecondary: 'rgba(225,225,225,0.5)', border: 'rgba(0,234,223,0.2)',
+  success: '#7ED957', error: '#FF6B6B',
+};
 
 // ---------------------------------------------------------------------------
 // Types
@@ -210,7 +217,7 @@ export function CompraDetalleScreen() {
             onPress={handlePagar}
             activeOpacity={0.85}
           >
-            <Ionicons name="card-outline" size={20} color="#fff" />
+            <Ionicons name="card-outline" size={20} color="#0A1626" />
             <Text style={styles.pagarText}>Pagar ahora</Text>
           </TouchableOpacity>
         </Animated.View>
@@ -260,7 +267,7 @@ const styles = StyleSheet.create({
     paddingVertical: spacing.md,
     borderRadius: borderRadius.xl,
   },
-  retryText: { color: '#fff', fontWeight: '600' },
+  retryText: { color: '#0A1626', fontWeight: '600' },
 
   scrollContent: {
     paddingHorizontal: spacing.base,
@@ -312,7 +319,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.xs,
-    backgroundColor: '#FFF3E0',
+    backgroundColor: '#152C44',
     paddingHorizontal: 8,
     paddingVertical: 3,
     borderRadius: borderRadius.full,
@@ -460,7 +467,7 @@ const styles = StyleSheet.create({
     marginBottom: spacing.base,
   },
   pagarText: {
-    color: '#fff',
+    color: '#0A1626',
     fontWeight: '700',
     fontSize: 16,
   },

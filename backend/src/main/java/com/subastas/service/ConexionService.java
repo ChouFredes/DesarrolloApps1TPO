@@ -13,7 +13,6 @@ import com.subastas.entity.Subasta;
 import com.subastas.entity.enums.CategoriaCliente;
 import com.subastas.entity.enums.EstadoMedioPago;
 import com.subastas.entity.enums.EstadoSubasta;
-import com.subastas.exception.BusinessException;
 import com.subastas.exception.ForbiddenException;
 import com.subastas.exception.ResourceNotFoundException;
 import com.subastas.repository.AsistenteRepository;
@@ -68,10 +67,9 @@ public class ConexionService {
 
         boolean tieneMedioPagoVerificado = medioPagoRepository.existsByPersonaIdAndEstado(clienteId, EstadoMedioPago.VERIFICADO);
 
-        if (asistenteRepository.existsByClienteIdAndSubastaEstado(clienteId, EstadoSubasta.abierta)
-                && asistenteRepository.findByClienteIdAndSubastaId(clienteId, subastaId).isEmpty()) {
-            throw new BusinessException("Ya está conectado a otra subasta");
-        }
+        // ponytail: se quitó el guard "una subasta a la vez". `desconectar` no borra el asistente
+        // (FK desde Pujo), así que el guard nunca se liberaba y bloqueaba entrar a cualquier otra
+        // subasta con 422. El upsert de abajo ya maneja re-entrar a la misma subasta.
 
         Asistente asistente = asistenteRepository.findByClienteIdAndSubastaId(clienteId, subastaId)
                 .orElseGet(() -> {
