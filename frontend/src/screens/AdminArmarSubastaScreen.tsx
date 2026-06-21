@@ -19,7 +19,15 @@ import axios from 'axios';
 import { spacing, borderRadius } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
-import { CATEGORIA_LABELS } from './VendedorHomeScreen';
+import { CATEGORIA_LABELS, NIVEL_COLORS } from './VendedorHomeScreen';
+
+const NIVELES = [
+  { id: 'comun', label: 'Nivel Común', categories: ['pociones', 'otros'] },
+  { id: 'especial', label: 'Nivel Especial', categories: ['maquinas_tecnicas'] },
+  { id: 'plata', label: 'Nivel Plata', categories: ['pokemon'] },
+  { id: 'oro', label: 'Nivel Oro', categories: ['electronica', 'vehiculos'] },
+  { id: 'platino', label: 'Nivel Platino', categories: ['arte', 'antiguedades', 'joyas', 'inmuebles'] },
+];
 
 const W = {
   bg: '#0F1F35', card: '#0D1E33', surface: '#0A1626', text: '#E1E1E1',
@@ -168,20 +176,34 @@ export function AdminArmarSubastaScreen() {
           </View>
 
           <Text style={styles.label}>Categoría de la subasta</Text>
-          <View style={styles.catWrap}>
-            {Object.keys(CATEGORIA_LABELS).map((cat) => (
-              <TouchableOpacity
-                key={cat}
-                style={[styles.catPill, categoria === cat && styles.pillActive]}
-                onPress={() => setCategoria(cat)}
-                activeOpacity={0.8}
-              >
-                <Text style={[styles.catPillText, categoria === cat && styles.pillTextActive]}>
-                  {CATEGORIA_LABELS[cat]}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </View>
+          <Text style={styles.hint}>Seleccioná la categoría entre los niveles de comprador disponibles. La subasta heredará este nivel de acceso.</Text>
+          {NIVELES.map((nivel) => (
+            <View key={nivel.id} style={styles.nivelGroup}>
+              <Text style={[styles.nivelTitle, { color: NIVEL_COLORS[nivel.id] || W.accent }]}>
+                {nivel.label.toUpperCase()}
+              </Text>
+              <View style={styles.catWrap}>
+                {nivel.categories.map((cat) => {
+                  const active = categoria === cat;
+                  return (
+                    <TouchableOpacity
+                      key={cat}
+                      style={[styles.catPill, active && styles.pillActive]}
+                      onPress={() => {
+                        setCategoria(cat);
+                        setSelected([]); // Reset chosen items on category change to prevent mixing categories
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Text style={[styles.catPillText, active && styles.pillTextActive]}>
+                        {CATEGORIA_LABELS[cat] ?? cat}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </View>
+            </View>
+          ))}
 
           <Text style={styles.label}>Duración</Text>
           <View style={styles.pillRow}>
@@ -205,44 +227,51 @@ export function AdminArmarSubastaScreen() {
           </View>
           <Text style={styles.hint}>Aceptados por el vendedor y asegurados. La categoría de la subasta la elegís arriba.</Text>
 
-          {items.length === 0 ? (
+          {categoria === null ? (
             <View style={styles.empty}>
-              <Ionicons name="cube-outline" size={48} color={W.textSub} />
-              <Text style={styles.emptyText}>No hay ítems listos todavía. Aprobá, tasá y asegurá ítems primero.</Text>
+              <Ionicons name="funnel-outline" size={44} color={W.textSub} />
+              <Text style={styles.emptyText}>Elegí una categoría arriba para ver los ítems listos correspondientes.</Text>
+            </View>
+          ) : items.filter((item) => item.categoria === categoria).length === 0 ? (
+            <View style={styles.empty}>
+              <Ionicons name="cube-outline" size={44} color={W.textSub} />
+              <Text style={styles.emptyText}>No hay ítems listos en la categoría "{CATEGORIA_LABELS[categoria] ?? categoria}".</Text>
             </View>
           ) : (
-            items.map((item) => {
-              const on = selected.includes(item.id);
-              const img = item.imagenUrl
-                ? (item.imagenUrl.startsWith('/') ? `${API_BASE_URL}${item.imagenUrl}` : item.imagenUrl)
-                : undefined;
-              return (
-                <TouchableOpacity
-                  key={item.id}
-                  style={[styles.itemCard, on && styles.itemCardOn]}
-                  activeOpacity={0.8}
-                  onPress={() => toggle(item)}
-                >
-                  <View style={[styles.check, on && styles.checkOn]}>
-                    {on && <Ionicons name="checkmark" size={15} color={W.surface} />}
-                  </View>
-                  <View style={styles.thumb}>
-                    {img ? (
-                      <Image source={{ uri: img }} style={styles.thumbImg} resizeMode="cover" />
-                    ) : (
-                      <View style={styles.thumbPh}><Ionicons name="cube-outline" size={20} color={W.textSub} /></View>
-                    )}
-                  </View>
-                  <View style={{ flex: 1 }}>
-                    <Text style={styles.itemDesc} numberOfLines={2}>{item.descripcion}</Text>
-                    <Text style={styles.itemMeta}>
-                      {item.duenioNombre ?? 'Dueño'} · {item.categoria ? (CATEGORIA_LABELS[item.categoria] ?? item.categoria) : 's/cat'}
-                    </Text>
-                    {item.precioBase != null ? <Text style={styles.itemPrecio}>Base: ${item.precioBase}</Text> : null}
-                  </View>
-                </TouchableOpacity>
-              );
-            })
+            items
+              .filter((item) => item.categoria === categoria)
+              .map((item) => {
+                const on = selected.includes(item.id);
+                const img = item.imagenUrl
+                  ? (item.imagenUrl.startsWith('/') ? `${API_BASE_URL}${item.imagenUrl}` : item.imagenUrl)
+                  : undefined;
+                return (
+                  <TouchableOpacity
+                    key={item.id}
+                    style={[styles.itemCard, on && styles.itemCardOn]}
+                    activeOpacity={0.8}
+                    onPress={() => toggle(item)}
+                  >
+                    <View style={[styles.check, on && styles.checkOn]}>
+                      {on && <Ionicons name="checkmark" size={15} color={W.surface} />}
+                    </View>
+                    <View style={styles.thumb}>
+                      {img ? (
+                        <Image source={{ uri: img }} style={styles.thumbImg} resizeMode="cover" />
+                      ) : (
+                        <View style={styles.thumbPh}><Ionicons name="cube-outline" size={20} color={W.textSub} /></View>
+                      )}
+                    </View>
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.itemDesc} numberOfLines={2}>{item.descripcion}</Text>
+                      <Text style={styles.itemMeta}>
+                        {item.duenioNombre ?? 'Dueño'} · {item.categoria ? (CATEGORIA_LABELS[item.categoria] ?? item.categoria) : 's/cat'}
+                      </Text>
+                      {item.precioBase != null ? <Text style={styles.itemPrecio}>Base: ${item.precioBase}</Text> : null}
+                    </View>
+                  </TouchableOpacity>
+                );
+              })
           )}
 
           {selected.length > 0 ? (
@@ -291,6 +320,20 @@ const styles = StyleSheet.create({
   },
   portadaPhText: { color: W.accent, fontSize: 13, fontWeight: '600' },
   catWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
+  nivelGroup: {
+    marginBottom: spacing.md,
+    backgroundColor: W.surface,
+    padding: spacing.md,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: W.border,
+  },
+  nivelTitle: {
+    fontSize: 12,
+    fontWeight: '800',
+    marginBottom: spacing.sm,
+    letterSpacing: 0.5,
+  },
   catPill: {
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 999,
     borderWidth: 1, borderColor: W.border, backgroundColor: W.card,
