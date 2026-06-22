@@ -54,8 +54,8 @@ public class SubastaService {
         if (todas) {
             subastas = subastaRepository.findByEstado(com.subastas.entity.enums.EstadoSubasta.abierta);
         } else {
-            List<CategoriaSubasta> categoriasPermitidas = CategoriaUtil.categoriasPermitidas(cliente.getCategoria());
-            subastas = subastaRepository.findAbiertasConCategoriasPermitidas(categoriasPermitidas);
+            List<com.subastas.entity.enums.CategoriaCliente> nivelesPermitidos = CategoriaUtil.nivelesPermitidos(cliente.getCategoria());
+            subastas = subastaRepository.findAbiertasConNivelesPermitidos(nivelesPermitidos);
         }
 
         List<Long> ids = subastas.stream().map(Subasta::getId).toList();
@@ -66,6 +66,7 @@ public class SubastaService {
                         s.getId(),
                         tituloFor(s),
                         s.getCategoria() != null ? s.getCategoria().name() : null,
+                        s.getNivel() != null ? s.getNivel().name() : null,
                         s.getUbicacion(),
                         fechaFinIso(s),
                         countPorSubasta.getOrDefault(s.getId(), 0L).intValue(),
@@ -243,6 +244,7 @@ public class SubastaService {
                         s.getId(),
                         tituloFor(s),
                         s.getCategoria() != null ? s.getCategoria().name() : null,
+                        s.getNivel() != null ? s.getNivel().name() : null,
                         s.getUbicacion(),
                         fechaFinIso(s),
                         counts.getOrDefault(s.getId(), 0L).intValue(),

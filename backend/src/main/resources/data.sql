@@ -41,12 +41,12 @@ INSERT INTO clientes (identificador, admitido, categoria, numero_pais) VALUES
 -- SUBASTAS ACTIVAS
 -- =============================================================
 
-INSERT INTO subastas (identificador, titulo, fecha, hora, estado, categoria, ubicacion, tiene_deposito, seguridad_propia, capacidad_asistentes, subastador) VALUES
-(1, 'PokeBalls', '2026-06-20', '11:00:00', 'abierta', 'pokemon',           'Centro de Subastas Kanto — Sala Coleccionistas', 'SI', 'SI', 150, 1),
-(2, 'Piedras de Evolución',  '2026-06-21', '12:00:00', 'abierta', 'pokemon',           'Gimnasio Celeste — Salón Evolución',             'SI', 'NO', 100, 1),
-(3, 'Mejoras de Combate', '2026-06-22', '13:00:00', 'abierta', 'maquinas_tecnicas', 'Centro de Batallas Kanto — Sala X',              'NO', 'SI', 200, 1),
-(4, 'Bundle berries',       '2026-06-23', '14:00:00', 'abierta', 'pociones',          'Pueblo Lavanda — Tienda Orgánica',               'NO', 'NO', 120, 1),
-(5, 'Objetos Equipables', '2026-06-24', '15:00:00', 'abierta', 'otros',             'Ciudad Azulona — Mercado Central',               'SI', 'SI', 300, 1);
+INSERT INTO subastas (identificador, titulo, fecha, hora, estado, categoria, nivel, ubicacion, tiene_deposito, seguridad_propia, capacidad_asistentes, subastador) VALUES
+(1, 'PokeBalls', '2026-06-20', '11:00:00', 'abierta', 'pokemon',           'plata',    'Centro de Subastas Kanto — Sala Coleccionistas', 'SI', 'SI', 150, 1),
+(2, 'Piedras de Evolución',  '2026-06-21', '12:00:00', 'abierta', 'pokemon',           'plata',    'Gimnasio Celeste — Salón Evolución',             'SI', 'NO', 100, 1),
+(3, 'Mejoras de Combate', '2026-06-22', '13:00:00', 'abierta', 'maquinas_tecnicas', 'especial', 'Centro de Batallas Kanto — Sala X',              'NO', 'SI', 200, 1),
+(4, 'Bundle berries',       '2026-06-23', '14:00:00', 'abierta', 'pociones',          'comun',    'Pueblo Lavanda — Tienda Orgánica',               'NO', 'NO', 120, 1),
+(5, 'Objetos Equipables', '2026-06-24', '15:00:00', 'abierta', 'otros',             'comun',    'Ciudad Azulona — Mercado Central',               'SI', 'SI', 300, 1);
 
 INSERT INTO catalogos (identificador, subasta) VALUES
 (1, 1),

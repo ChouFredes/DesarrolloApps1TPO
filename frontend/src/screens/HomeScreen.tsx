@@ -45,18 +45,21 @@ const LEVEL_COLORS: Record<string, string> = {
   pociones: '#00EADF',
 };
 
-const POKEBALL_BY_CATEGORY: Record<string, any> = {
-  pokemon: require('../../assets/pokeballs/masterball.png'),
-  pociones: require('../../assets/pokeballs/superball.png'),
-  maquinas_tecnicas: require('../../assets/pokeballs/greatball.png'),
+// La pokeball representa el NIVEL de acceso de la subasta (a mayor nivel, ball más rara).
+const POKEBALL_BY_NIVEL: Record<string, any> = {
+  comun: require('../../assets/pokeballs/pokeball.png'),
+  especial: require('../../assets/pokeballs/superball.png'),
+  plata: require('../../assets/pokeballs/greatball.png'),
+  oro: require('../../assets/pokeballs/ultraball.png'),
+  platino: require('../../assets/pokeballs/masterball.png'),
 };
 const POKEBALL_DEFAULT = require('../../assets/pokeballs/pokeball.png');
 const ROTOM_IMG = require('../../assets/pokeballs/rotom.png');
 const CARD_IMG_H = 110; // altura fija de imagen en cada card
 const SCAN_H = Math.floor(CARD_IMG_H * 0.35); // altura concreta para el scanline (38px)
 
-function getPokeballSource(categoria: string) {
-  return POKEBALL_BY_CATEGORY[categoria] ?? POKEBALL_DEFAULT;
+function getPokeballSource(nivel: string) {
+  return POKEBALL_BY_NIVEL[nivel] ?? POKEBALL_DEFAULT;
 }
 
 // ── ScanlineOverlay ────────────────────────────────────────────────────────
@@ -143,6 +146,7 @@ type Subasta = {
   id: number;
   titulo: string;
   categoria: string;
+  nivel: string;
   ubicacion: string;
   fechaFin: string;
   cantidadItems: number;
@@ -230,8 +234,13 @@ function AuctionCard({ item, gIdx, onPress, fontsLoaded }: CardProps) {
                 resizeMode="cover"
               />
             ) : (
+              // Sin portada (ej. subastas stock sin imagen): mostramos la pokeball del nivel.
               <View style={[StyleSheet.absoluteFillObject, s.imgEmpty]}>
-                <Ionicons name="image-outline" size={26} color={W.inactive} />
+                <Image
+                  source={getPokeballSource(item.nivel)}
+                  style={s.imgFallbackBall}
+                  resizeMode="contain"
+                />
               </View>
             )}
             <ScanlineOverlay />
@@ -242,7 +251,7 @@ function AuctionCard({ item, gIdx, onPress, fontsLoaded }: CardProps) {
             {/* Pokéball + título */}
             <View style={s.cardTitleRow}>
               <Image
-                source={getPokeballSource(item.categoria)}
+                source={getPokeballSource(item.nivel)}
                 style={s.pokeballBadge}
               />
               <Text style={s.name} numberOfLines={2}>{item.titulo}</Text>
@@ -660,6 +669,11 @@ const s = StyleSheet.create({
   imgEmpty: {
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  imgFallbackBall: {
+    width: 56,
+    height: 56,
+    opacity: 0.85,
   },
 
 

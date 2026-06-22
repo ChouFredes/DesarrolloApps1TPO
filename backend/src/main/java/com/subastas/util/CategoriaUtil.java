@@ -40,4 +40,17 @@ public class CategoriaUtil {
     public static boolean puedeAcceder(CategoriaCliente clienteCategoria, CategoriaSubasta subastaCategoria) {
         return getClientLevel(clienteCategoria) >= getSubastaLevel(subastaCategoria);
     }
+
+    /** El comprador puede acceder a una subasta si su nivel es igual o superior al de la subasta. */
+    public static boolean puedeAccederNivel(CategoriaCliente clienteCategoria, CategoriaCliente subastaNivel) {
+        return getClientLevel(clienteCategoria) >= getClientLevel(subastaNivel);
+    }
+
+    /** Niveles de subasta que un comprador de este nivel puede ver (el suyo y todos los inferiores). */
+    public static List<CategoriaCliente> nivelesPermitidos(CategoriaCliente clienteCategoria) {
+        int userLevel = getClientLevel(clienteCategoria);
+        return Arrays.stream(CategoriaCliente.values())
+                .filter(nivel -> getClientLevel(nivel) <= userLevel)
+                .toList();
+    }
 }

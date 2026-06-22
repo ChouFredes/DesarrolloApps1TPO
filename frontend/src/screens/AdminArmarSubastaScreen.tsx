@@ -19,14 +19,17 @@ import axios from 'axios';
 import { spacing, borderRadius } from '../theme';
 import { useAuthStore } from '../stores/authStore';
 import { API_BASE_URL } from '../config/api';
-import { CATEGORIA_LABELS, NIVEL_COLORS } from './VendedorHomeScreen';
+import { CATEGORIA_LABELS } from './VendedorHomeScreen';
 
+// La categoría (tipo de ítem) y el nivel de acceso se eligen por separado: una subasta
+// de "electrónica" puede ser oro, plata o platino según lo decida la empresa.
+const CATEGORIAS = Object.keys(CATEGORIA_LABELS);
 const NIVELES = [
-  { id: 'comun', label: 'Nivel Común', categories: ['pociones', 'otros'] },
-  { id: 'especial', label: 'Nivel Especial', categories: ['maquinas_tecnicas'] },
-  { id: 'plata', label: 'Nivel Plata', categories: ['pokemon'] },
-  { id: 'oro', label: 'Nivel Oro', categories: ['electronica', 'vehiculos'] },
-  { id: 'platino', label: 'Nivel Platino', categories: ['arte', 'antiguedades', 'joyas', 'inmuebles'] },
+  { id: 'comun', label: 'Común' },
+  { id: 'especial', label: 'Especial' },
+  { id: 'plata', label: 'Plata' },
+  { id: 'oro', label: 'Oro' },
+  { id: 'platino', label: 'Platino' },
 ];
 
 const W = {
@@ -54,6 +57,7 @@ export function AdminArmarSubastaScreen() {
   const [selected, setSelected] = useState<number[]>([]);
   const [titulo, setTitulo] = useState('');
   const [categoria, setCategoria] = useState<string | null>(null);
+  const [nivel, setNivel] = useState<string | null>(null);
   const [dias, setDias] = useState(3);
   const [portada, setPortada] = useState<{ uri: string; dataUrl: string } | null>(null);
   const [submitting, setSubmitting] = useState(false);
@@ -107,6 +111,10 @@ export function AdminArmarSubastaScreen() {
       Alert.alert('Falta la categoría', 'Elegí la categoría de la subasta.');
       return;
     }
+    if (!nivel) {
+      Alert.alert('Falta el nivel', 'Elegí el nivel de acceso de la subasta.');
+      return;
+    }
     if (!portada) {
       Alert.alert('Falta la portada', 'Elegí una foto de portada para la subasta.');
       return;
@@ -116,6 +124,7 @@ export function AdminArmarSubastaScreen() {
       await axios.post(`${API_BASE_URL}/admin/subastas/armar`, {
         titulo: titulo.trim(),
         categoria,
+        nivel,
         dias,
         fotoPortadaUrl: portada.dataUrl,
         itemIds: selected,
@@ -123,7 +132,7 @@ export function AdminArmarSubastaScreen() {
       Alert.alert(
         'Subasta armada',
         `Queda en vivo por ${dias} día${dias > 1 ? 's' : ''} y ya es visible para los compradores de la categoría o superior.`,
-        [{ text: 'OK', onPress: () => { setSelected([]); setTitulo(''); setPortada(null); setCategoria(null); fetchListos(); } }]
+        [{ text: 'OK', onPress: () => { setSelected([]); setTitulo(''); setPortada(null); setCategoria(null); setNivel(null); fetchListos(); } }]
       );
     } catch (err: any) {
       Alert.alert('Error', err?.response?.data?.mensaje || 'No se pudo armar la subasta.');
@@ -176,34 +185,47 @@ export function AdminArmarSubastaScreen() {
           </View>
 
           <Text style={styles.label}>Categoría de la subasta</Text>
-          <Text style={styles.hint}>Seleccioná la categoría entre los niveles de comprador disponibles. La subasta heredará este nivel de acceso.</Text>
-          {NIVELES.map((nivel) => (
-            <View key={nivel.id} style={styles.nivelGroup}>
-              <Text style={[styles.nivelTitle, { color: NIVEL_COLORS[nivel.id] || W.accent }]}>
-                {nivel.label.toUpperCase()}
-              </Text>
-              <View style={styles.catWrap}>
-                {nivel.categories.map((cat) => {
-                  const active = categoria === cat;
-                  return (
-                    <TouchableOpacity
-                      key={cat}
-                      style={[styles.catPill, active && styles.pillActive]}
-                      onPress={() => {
-                        setCategoria(cat);
-                        setSelected([]); // Reset chosen items on category change to prevent mixing categories
-                      }}
-                      activeOpacity={0.8}
-                    >
-                      <Text style={[styles.catPillText, active && styles.pillTextActive]}>
-                        {CATEGORIA_LABELS[cat] ?? cat}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-            </View>
-          ))}
+          <Text style={styles.hint}>El tipo de ítem que se subasta. Filtra los ítems listos disponibles abajo.</Text>
+          <View style={styles.catWrap}>
+            {CATEGORIAS.map((cat) => {
+              const active = categoria === cat;
+              return (
+                <TouchableOpacity
+                  key={cat}
+                  style={[styles.catPill, active && styles.pillActive]}
+                  onPress={() => {
+                    setCategoria(cat);
+                    setSelected([]); // Reset chosen items on category change to prevent mixing categories
+                  }}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.catPillText, active && styles.pillTextActive]}>
+                    {CATEGORIA_LABELS[cat] ?? cat}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
+
+          <Text style={styles.label}>Nivel de acceso</Text>
+          <Text style={styles.hint}>Define qué compradores ven la subasta. Es independiente de la categoría.</Text>
+          <View style={styles.catWrap}>
+            {NIVELES.map((n) => {
+              const active = nivel === n.id;
+              return (
+                <TouchableOpacity
+                  key={n.id}
+                  style={[styles.catPill, active && styles.pillActive]}
+                  onPress={() => setNivel(n.id)}
+                  activeOpacity={0.8}
+                >
+                  <Text style={[styles.catPillText, active && { color: W.surface }]}>
+                    {n.label}
+                  </Text>
+                </TouchableOpacity>
+              );
+            })}
+          </View>
 
           <Text style={styles.label}>Duración</Text>
           <View style={styles.pillRow}>
@@ -320,20 +342,6 @@ const styles = StyleSheet.create({
   },
   portadaPhText: { color: W.accent, fontSize: 13, fontWeight: '600' },
   catWrap: { flexDirection: 'row', flexWrap: 'wrap', gap: spacing.sm },
-  nivelGroup: {
-    marginBottom: spacing.md,
-    backgroundColor: W.surface,
-    padding: spacing.md,
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: W.border,
-  },
-  nivelTitle: {
-    fontSize: 12,
-    fontWeight: '800',
-    marginBottom: spacing.sm,
-    letterSpacing: 0.5,
-  },
   catPill: {
     paddingHorizontal: spacing.md, paddingVertical: spacing.sm, borderRadius: 999,
     borderWidth: 1, borderColor: W.border, backgroundColor: W.card,

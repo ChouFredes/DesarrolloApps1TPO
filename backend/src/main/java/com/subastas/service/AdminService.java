@@ -347,6 +347,13 @@ public class AdminService {
             throw new com.subastas.exception.BusinessException("Categoría inválida: " + req.categoria());
         }
 
+        CategoriaCliente nivel;
+        try {
+            nivel = CategoriaCliente.valueOf(req.nivel().toLowerCase().trim());
+        } catch (IllegalArgumentException e) {
+            throw new com.subastas.exception.BusinessException("Nivel inválido: " + req.nivel());
+        }
+
         List<Producto> listos = productoRepository.findAllById(req.itemIds()).stream()
                 .filter(p -> "aceptado_por_usuario".equals(p.getDisponible()) && p.getSeguro() != null)
                 .toList();
@@ -358,6 +365,7 @@ public class AdminService {
         Subasta subasta = new Subasta();
         subasta.setTitulo(req.titulo() != null && !req.titulo().isBlank() ? req.titulo() : "Subasta " + categoria.name());
         subasta.setCategoria(categoria);
+        subasta.setNivel(nivel);
         subasta.setEstado(EstadoSubasta.abierta);
         subasta.setFecha(java.time.LocalDate.now().plusDays(Math.max(1, req.dias())));
         subasta.setHora(java.time.LocalTime.now());

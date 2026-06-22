@@ -143,7 +143,7 @@ class AdminServiceTest {
         Producto sinSeguro = new Producto();
         sinSeguro.setDisponible("aceptado_por_usuario"); // aceptado pero sin seguro → no listo
         com.subastas.dto.request.ArmarSubastaRequest req =
-                new com.subastas.dto.request.ArmarSubastaRequest("Mi subasta", "joyas", 3, null, List.of(5L));
+                new com.subastas.dto.request.ArmarSubastaRequest("Mi subasta", "joyas", "platino", 3, null, List.of(5L));
         when(productoRepository.findAllById(List.of(5L))).thenReturn(List.of(sinSeguro));
 
         assertThrows(com.subastas.exception.BusinessException.class,
@@ -158,7 +158,7 @@ class AdminServiceTest {
         listo.setDisponible("aceptado_por_usuario");
         listo.setSeguro(new Seguro());
         com.subastas.dto.request.ArmarSubastaRequest req =
-                new com.subastas.dto.request.ArmarSubastaRequest("Colección Uri", "joyas", 3, null, List.of(5L));
+                new com.subastas.dto.request.ArmarSubastaRequest("Colección Uri", "joyas", "platino", 3, null, List.of(5L));
 
         when(productoRepository.findAllById(List.of(5L))).thenReturn(List.of(listo));
         when(subastaRepository.save(any())).thenAnswer(inv -> inv.getArgument(0));

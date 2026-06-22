@@ -1,5 +1,6 @@
 package com.subastas.entity;
 
+import com.subastas.entity.enums.CategoriaCliente;
 import com.subastas.entity.enums.CategoriaSubasta;
 import com.subastas.entity.enums.EstadoSubasta;
 import jakarta.persistence.*;
@@ -36,6 +37,11 @@ public class Subasta {
     @Column(name = "categoria")
     @Enumerated(EnumType.STRING)
     private CategoriaSubasta categoria;
+
+    /** Nivel de acceso que define qué compradores la ven. Lo elige la empresa, independiente de la categoría. */
+    @Column(name = "nivel")
+    @Enumerated(EnumType.STRING)
+    private CategoriaCliente nivel;
 
     @Column(name = "ubicacion")
     private String ubicacion;

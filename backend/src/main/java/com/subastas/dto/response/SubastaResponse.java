@@ -4,6 +4,7 @@ public record SubastaResponse(
         Long id,
         String titulo,
         String categoria,
+        String nivel,
         String ubicacion,
         String fechaFin,
         int cantidadItems,

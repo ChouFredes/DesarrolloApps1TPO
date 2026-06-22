@@ -118,8 +118,8 @@ public class PujaService {
             throw new ForbiddenException("Tenés multas pendientes de pago. Aboná tus multas para poder participar en subastas.");
         }
 
-        if (item.getCatalogo().getSubasta().getCategoria() != null &&
-            !com.subastas.util.CategoriaUtil.puedeAcceder(cliente.getCategoria(), item.getCatalogo().getSubasta().getCategoria())) {
+        if (item.getCatalogo().getSubasta().getNivel() != null &&
+            !com.subastas.util.CategoriaUtil.puedeAccederNivel(cliente.getCategoria(), item.getCatalogo().getSubasta().getNivel())) {
             throw new ForbiddenException("Lamentablemente esta subasta está por encima de tu categoría");
         }
 
