@@ -196,8 +196,12 @@ export function SubastaDetalleVendedorScreen() {
     }
   };
 
-  const portada = lote?.fotoPortadaUrl
-    ? (lote.fotoPortadaUrl.startsWith('/') ? `${API_BASE_URL}${lote.fotoPortadaUrl}` : lote.fotoPortadaUrl)
+  // La portada del lote (Lote.fotoPortada) es otro objeto que la Subasta.fotoPortada que ven
+  // comprador/empresa y suele venir vacía/incorrecta. Usamos la 1ª foto de item, que es la misma
+  // imagen real que se muestra en todos lados.
+  const portadaRaw = lote?.items?.find((i) => i.imagenUrl)?.imagenUrl ?? lote?.fotoPortadaUrl;
+  const portada = portadaRaw
+    ? (portadaRaw.startsWith('/') ? `${API_BASE_URL}${portadaRaw}` : portadaRaw)
     : undefined;
 
   return (

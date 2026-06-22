@@ -49,30 +49,18 @@ export const CATEGORIA_LABELS: Record<string, string> = {
   otros: 'Otros',
 };
 
-interface Articulo {
-  id: number;
-  estado: string;
-}
-
 export function VendedorHomeScreen() {
   const navigation = useNavigation<any>();
   const { token, user } = useAuthStore();
-  const [articulos, setArticulos] = useState<Articulo[]>([]);
   const [categoriasPermitidas, setCategoriasPermitidas] = useState<string[]>([]);
   const [refreshing, setRefreshing] = useState(false);
 
   const fetchData = useCallback(async () => {
     try {
-      const [perfilRes, articulosRes] = await Promise.all([
-        axios.get(`${API_BASE_URL}/vendedores/me`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-        axios.get<Articulo[]>(`${API_BASE_URL}/articulos/mis-articulos`, {
-          headers: { Authorization: `Bearer ${token}` },
-        }),
-      ]);
+      const perfilRes = await axios.get(`${API_BASE_URL}/vendedores/me`, {
+        headers: { Authorization: `Bearer ${token}` },
+      });
       setCategoriasPermitidas(perfilRes.data.categoriasPermitidas ?? []);
-      setArticulos(articulosRes.data ?? []);
     } catch {
       // se reintenta con pull-to-refresh
     }
@@ -92,9 +80,6 @@ export function VendedorHomeScreen() {
 
   const nivel = user?.nivel ?? 'comun';
   const nivelColor = NIVEL_COLORS[nivel] ?? W.accent;
-  const enRevision = articulos.filter((a) => a.estado === 'PENDIENTE_INSPECCION').length;
-  const aceptados = articulos.filter((a) => a.estado === 'ACEPTADO').length;
-  const vendidos = articulos.filter((a) => a.estado === 'VENDIDO').length;
 
   return (
     <SafeAreaView style={styles.safe}>
@@ -119,22 +104,6 @@ export function VendedorHomeScreen() {
           <View style={{ flex: 1 }}>
             <Text style={styles.nivelLabel}>Tu categoría de vendedor</Text>
             <Text style={[styles.nivelValue, { color: nivelColor }]}>{nivel.toUpperCase()}</Text>
-          </View>
-        </View>
-
-        {/* Stats */}
-        <View style={styles.statsRow}>
-          <View style={styles.statCard}>
-            <Text style={styles.statNum}>{enRevision}</Text>
-            <Text style={styles.statLabel}>En revisión</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNum}>{aceptados}</Text>
-            <Text style={styles.statLabel}>Aceptados</Text>
-          </View>
-          <View style={styles.statCard}>
-            <Text style={styles.statNum}>{vendidos}</Text>
-            <Text style={styles.statLabel}>Vendidos</Text>
           </View>
         </View>
 

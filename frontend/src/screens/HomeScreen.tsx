@@ -202,6 +202,7 @@ function AuctionCard({ item, gIdx, onPress, fontsLoaded }: CardProps) {
     : '';
 
   const { full } = useCountdownBoth(item.fechaFin);
+  const finalizado = full === 'Finalizado';
   const levelColor = LEVEL_COLORS[item.categoria] ?? '#00EADF';
 
   const entryAnim = useRef(new Animated.Value(0)).current;
@@ -222,7 +223,7 @@ function AuctionCard({ item, gIdx, onPress, fontsLoaded }: CardProps) {
 
   return (
     <Animated.View style={[s.card, { opacity: entryAnim, transform: [{ translateY }] }]}>
-      <TouchableOpacity onPress={onPress} activeOpacity={0.85} style={{ flex: 1 }}>
+      <TouchableOpacity onPress={onPress} activeOpacity={0.85} disabled={finalizado} style={{ flex: 1 }}>
         <View style={s.cardInner}>
 
           {/* Imagen superior */}
@@ -268,14 +269,16 @@ function AuctionCard({ item, gIdx, onPress, fontsLoaded }: CardProps) {
 
             {/* Botón Ofertar */}
             <TouchableOpacity
-              style={s.bidBtn}
+              style={[s.bidBtn, finalizado && s.bidBtnDisabled]}
               onPress={onPress}
               activeOpacity={0.75}
+              disabled={finalizado}
             >
               <Text style={[
                 s.bidBtnTxt,
+                finalizado && s.bidBtnTxtDisabled,
                 fontsLoaded && { fontFamily: 'PressStart2P_400Regular', fontSize: 7 },
-              ]}>OFERTAR</Text>
+              ]}>{finalizado ? 'FINALIZADA' : 'OFERTAR'}</Text>
             </TouchableOpacity>
           </View>
 
@@ -732,6 +735,13 @@ const s = StyleSheet.create({
     fontWeight: '700',
     color: W.accent,
     letterSpacing: 0.8,
+  },
+  bidBtnDisabled: {
+    backgroundColor: 'rgba(225,225,225,0.05)',
+    borderColor: 'rgba(225,225,225,0.15)',
+  },
+  bidBtnTxtDisabled: {
+    color: W.inactive,
   },
 
   // Empty state

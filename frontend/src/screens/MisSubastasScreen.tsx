@@ -20,6 +20,8 @@ import { API_BASE_URL } from '../config/api';
 import { CATEGORIA_LABELS } from './VendedorHomeScreen';
 import { VendedorItemsStackParamList } from '../navigation/VendedorNavigator';
 
+// ─── CONSTANTES: valores fijos que nunca cambian. Se definen una vez, fuera del componente,
+//     porque no tiene sentido recalcularlos en cada dibujo. (CATEGORIA_LABELS se importa arriba.)
 // ─── Paleta navy (igual que Panel / Armar Subasta) ───────────────────────────
 const W = {
   bg: '#0F1F35',
@@ -34,6 +36,7 @@ const W = {
 interface ItemResumen {
   id: number;
   estado: string;
+  imagenUrl?: string | null;
 }
 
 interface Lote {
@@ -68,28 +71,34 @@ export function estadoLote(estado: string): { label: string; color: string } {
 type Nav = StackNavigationProp<VendedorItemsStackParamList, 'MisSubastas'>;
 
 export function MisSubastasScreen() {
-  const navigation = useNavigation<Nav>();
-  const { token } = useAuthStore();
-  const [lotes, setLotes] = useState<Lote[]>([]);
-  const [loading, setLoading] = useState(true);
-  const [refreshing, setRefreshing] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  // ── Variables "de afuera": no nacen en esta pantalla, vienen del resto de la app ──
+  const navigation = useNavigation<Nav>(); // para movernos a otra pantalla (al detalle del lote)
+  const { token } = useAuthStore();         // token de login (store global); va en cada pedido al backend
 
+  // ── Variables de ESTADO: lo que cambia con el tiempo. Al hacer setX(), React re-dibuja solo ──
+  const [lotes, setLotes] = useState<Lote[]>([]);          // las subastas del vendedor; arranca vacío
+  const [loading, setLoading] = useState(true);            // true mientras carga → muestra el spinner
+  const [refreshing, setRefreshing] = useState(false);     // estado del "deslizá para refrescar"
+  const [error, setError] = useState<string | null>(null); // mensaje si la carga falla
+
+  // fetchLotes: le pide los datos al backend y los vuelca en el estado.
+  // Esta es la "historia" que conecta todo: estado vacío → pido al server → lleno el estado → la UI reacciona.
   const fetchLotes = useCallback(async () => {
     try {
       setError(null);
       const res = await axios.get<Lote[]>(`${API_BASE_URL}/articulos/lotes`, {
-        headers: { Authorization: `Bearer ${token}` },
+        headers: { Authorization: `Bearer ${token}` }, // mando el token para que el backend me autorice
       });
-      setLotes(res.data ?? []);
+      setLotes(res.data ?? []); // ← llegaron los datos: las tarjetas aparecen
     } catch {
-      setError('No se pudieron cargar tus subastas.');
+      setError('No se pudieron cargar tus subastas.'); // ← falló: se muestra el cartel de error
     } finally {
-      setLoading(false);
+      setLoading(false);   // pase lo que pase, sacamos el spinner
       setRefreshing(false);
     }
   }, [token]);
 
+  // Dispara fetchLotes cada vez que entramos a la pantalla → siempre vemos datos frescos
   useFocusEffect(
     useCallback(() => {
       fetchLotes();
@@ -101,12 +110,16 @@ export function MisSubastasScreen() {
     fetchLotes();
   };
 
+  // renderItem dibuja UNA tarjeta. Acá van las variables DERIVADAS: se calculan a partir de `item`,
+  // no se guardan en estado (si lo podés calcular, no lo guardes).
   const renderItem = ({ item }: { item: Lote }) => {
-    const est = estadoLote(item.estado);
-    const portada = item.fotoPortadaUrl
-      ? (item.fotoPortadaUrl.startsWith('/') ? `${API_BASE_URL}${item.fotoPortadaUrl}` : item.fotoPortadaUrl)
+    const est = estadoLote(item.estado); // {label, color}: convierte 'pendiente_inspeccion' → "En revisión" + color
+    // Portada = 1ª foto de item (misma imagen real que ven comprador/empresa), no Lote.fotoPortada.
+    const portadaRaw = item.items?.find((i) => i.imagenUrl)?.imagenUrl ?? item.fotoPortadaUrl;
+    const portada = portadaRaw // armamos la URL completa solo si hay foto
+      ? (portadaRaw.startsWith('/') ? `${API_BASE_URL}${portadaRaw}` : portadaRaw)
       : undefined;
-    const cantItems = item.items?.length ?? 0;
+    const cantItems = item.items?.length ?? 0; // cuántos ítems tiene el lote
     return (
       <TouchableOpacity
         style={styles.card}
